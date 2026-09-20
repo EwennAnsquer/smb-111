@@ -1,0 +1,30 @@
+# --- Terraform ---
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform/
+.terraform.d/
+crash.log
+
+# --- Ansible & Identifiants ---
+ansible/inventory.ini
+*.vault_pass
+*.retry
+
+# --- Clés SSH & Sécurité ---
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# --- Kubernetes & Kubeconfig ---
+kubeconfig*
+config-k3s
+
+# --- Système & Éditeurs ---
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.log

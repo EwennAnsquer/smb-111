@@ -1,0 +1,112 @@
+---
+- name: Préparation de toutes les machines
+  hosts: k3s_cluster
+  become: yes
+  tasks:
+    - name: Mettre à jour les paquets
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Installer curl et ca-certificates
+      ansible.builtin.apt:
+        name:
+          - curl
+          - ca-certificates
+        state: present
+
+    - name: Désactiver le swap
+      ansible.builtin.command: swapoff -a
+
+- name: Déploiement des Nœuds Maîtres (Control Plane HA)
+  hosts: masters
+  become: yes
+  tasks:
+    - name: Initialiser le cluster K3s (Premier Master uniquement)
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | sh -s - server --cluster-init --write-kubeconfig-mode "0644"
+      args:
+        creates: /etc/systemd/system/k3s.service
+      when: inventory_hostname == groups['masters'][0]
+
+    - name: Attendre que le fichier token soit généré par le premier master
+      ansible.builtin.wait_for:
+        path: /var/lib/rancher/k3s/server/node-token
+        state: present
+      when: inventory_hostname == groups['masters'][0]
+
+    - name: Récupérer le jeton (Token) d'enregistrement K3s
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token
+      when: inventory_hostname == groups['masters'][0]
+
+    - name: Joindre les autres Masters au cluster (Serveurs supplémentaires)
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" sh -s - server --server "https://{{ hostvars[groups['masters'][0]]['ansible_host'] }}:6443" --write-kubeconfig-mode "0644"
+      args:
+        creates: /etc/systemd/system/k3s.service
+      when: inventory_hostname != groups['masters'][0]
+
+- name: Déploiement des Nœuds Workers
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Installer K3s Worker et joindre le cluster
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | K3S_URL="https://{{ hostvars[groups['masters'][0]]['ansible_host'] }}:6443" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" INSTALL_K3S_EXEC="agent --node-label role=worker" sh -
+      args:
+        creates: /etc/systemd/system/k3s-agent.service
+
+- name: Configuration post-installation sur le Master
+  hosts: masters[0]
+  become: yes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  tasks:
+    - name: Affecter le rôle worker aux nœuds
+      ansible.builtin.command: >
+        kubectl label node {{ item }} node-role.kubernetes.io/worker=worker --overwrite
+      loop: "{{ groups['workers'] }}"
+      when: groups['workers'] is defined and groups['workers'] | length > 0
+
+- name: Récupération du Kubeconfig depuis le Master
+  hosts: masters[0]
+  become: yes
+  tasks:
+    - name: Télécharger k3s.yaml vers la machine locale
+      ansible.builtin.fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
+        flat: yes
+
+- name: Configuration locale et installation de k9s
+  hosts: localhost
+  connection: local
+  become: no
+  tasks:
+    - name: Adapter l'IP du master dans le kubeconfig local
+      ansible.builtin.replace:
+        path: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
+        regexp: 'https://127.0.0.1:6443'
+        replace: "https://{{ hostvars[groups['masters'][0]]['ansible_host'] }}:6443"
+
+    - name: Ajuster les permissions du fichier kubeconfig
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
+        mode: '0600'
+
+    - name: Vérifier la présence de k9s sur la machine locale
+      ansible.builtin.command: which k9s
+      register: k9s_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Installer k9s en local si nécessaire
+      ansible.builtin.unarchive:
+        src: https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz
+        dest: /usr/local/bin/
+        remote_src: yes
+        creates: /usr/local/bin/k9s
+      become: yes
+      when: k9s_check.rc != 0
