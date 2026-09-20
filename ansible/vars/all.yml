@@ -1,0 +1,5 @@
+# ansible/vars/all.yml
+github_user: "EwennAnsquer"
+github_repo: "smb-111"
+github_branch: "main"
+target_path: "cluster"

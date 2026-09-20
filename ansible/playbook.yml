@@ -110,3 +110,30 @@
         creates: /usr/local/bin/k9s
       become: yes
       when: k9s_check.rc != 0
+
+- name: Déploiement et Bootstrap de FluxCD
+  hosts: masters[0]
+  become: yes
+  vars_files:
+    - vars/all.yml
+    - vars/secrets.yml
+  tasks:
+    - name: Télécharger et installer la CLI Flux
+      ansible.builtin.shell: |
+        curl -s https://fluxcd.io/install.sh | bash
+      args:
+        creates: /usr/local/bin/flux
+
+    - name: Exécuter Flux Bootstrap Github
+      ansible.builtin.command: >
+        flux bootstrap github
+        --owner={{ github_user }}
+        --repository={{ github_repo }}
+        --branch={{ github_branch }}
+        --path={{ target_path }}
+        --personal
+      environment:
+        GITHUB_TOKEN: "{{ github_token }}"
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      register: flux_bootstrap
+      changed_when: "'sync configuration completed' in flux_bootstrap.stdout"
