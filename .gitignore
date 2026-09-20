@@ -28,3 +28,4 @@ config-k3s
 .idea/
 *.swp
 *.log
+ansible/vars/secrets.yml
