@@ -17,12 +17,12 @@ spec:
             config:
               endpoint: ovh-eu
               authenticationMethod: application
-              applicationKeySecretRef:
+              applicationKeyRef:
                 name: ovh-credentials
                 key: applicationKey
-              applicationSecretSecretRef:
+              applicationSecretRef:
                 name: ovh-credentials
                 key: applicationSecret
-              consumerKeySecretRef:
+              consumerKeyRef:
                 name: ovh-credentials
                 key: consumerKey
