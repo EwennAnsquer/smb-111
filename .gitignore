@@ -21,6 +21,8 @@ id_ed25519*
 # --- Kubernetes & Kubeconfig ---
 kubeconfig*
 config-k3s
+*secret.yml
+*credentials.yml
 
 # --- Système & Éditeurs ---
 .DS_Store
