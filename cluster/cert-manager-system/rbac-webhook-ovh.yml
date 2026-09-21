@@ -1,0 +1,24 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cert-manager-webhook-ovh-secret-reader
+  namespace: cert-manager-system
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cert-manager-webhook-ovh-secret-reader
+  namespace: cert-manager-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cert-manager-webhook-ovh-secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager-system-cert-manager-webhook-ovh
+    namespace: cert-manager-system
