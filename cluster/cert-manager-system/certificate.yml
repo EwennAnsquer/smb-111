@@ -1,0 +1,14 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-azby-fr
+  namespace: default
+spec:
+  secretName: wildcard-azby-fr-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - "azby.fr"
+    - "*.azby.fr"
