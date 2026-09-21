@@ -16,3 +16,6 @@ spec:
   targetNamespace: cert-manager-system
   values:
     groupName: acme.azby.com
+    certManager:
+      namespace: cert-manager-system
+      serviceAccountName: cert-manager
