@@ -6,4 +6,4 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h0s
-  url: https://a100km.github.io/cert-manager-webhook-ovh
+  url: https://aureq.github.io/cert-manager-webhook-ovh/
