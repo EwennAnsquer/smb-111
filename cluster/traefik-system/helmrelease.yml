@@ -31,3 +31,6 @@ spec:
         web:
           namespacePolicy:
             from: All
+values:
+    deployment:
+      replicas: 3
