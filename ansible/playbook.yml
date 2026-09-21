@@ -64,6 +64,22 @@
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   tasks:
+    - name: Attendre que le serveur API Kubernetes soit prêt
+      ansible.builtin.command: kubectl get nodes
+      register: api_check
+      until: api_check.rc == 0
+      retries: 15
+      delay: 5
+
+    - name: Attendre que tous les nœuds workers soient visibles
+      ansible.builtin.command: kubectl get node {{ item }}
+      register: node_check
+      until: node_check.rc == 0
+      retries: 20
+      delay: 5
+      loop: "{{ groups['workers'] }}"
+      when: groups['workers'] is defined and groups['workers'] | length > 0
+
     - name: Affecter le rôle worker aux nœuds
       ansible.builtin.command: >
         kubectl label node {{ item }} node-role.kubernetes.io/worker=worker --overwrite
@@ -132,6 +148,7 @@
         --branch={{ github_branch }}
         --path={{ target_path }}
         --personal
+        --reconcile
       environment:
         GITHUB_TOKEN: "{{ github_token }}"
         KUBECONFIG: /etc/rancher/k3s/k3s.yaml
