@@ -8,11 +8,16 @@
         update_cache: yes
         upgrade: dist
 
-    - name: Installer curl et ca-certificates
+    - name: Installation des paquets
       ansible.builtin.apt:
         name:
           - curl
           - ca-certificates
+          - open-iscsi
+          - nfs-common
+          - util-linux
+          - grep
+          - gawk
         state: present
 
     - name: Désactiver le swap
