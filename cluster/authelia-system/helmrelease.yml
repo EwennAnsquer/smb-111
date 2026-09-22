@@ -19,7 +19,7 @@ spec:
     - kind: Secret
       name: authelia-secret
       valuesKey: SESSION_SECRET
-      targetPath: secret.values.session.secret
+      targetPath: secret.session.secret
   values:
     configMap:
       theme: dark
