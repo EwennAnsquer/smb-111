@@ -18,18 +18,19 @@ spec:
   values:
     secret:
       existingSecret: authelia-secret
-    extraVolumes:
-      - name: users-db
-        configMap:
-          name: authelia-users
-    extraVolumeMounts:
-      - name: users-db
-        mountPath: /config/users_database.yml
-        subPath: users_database.yml
+    pod:
+      extraVolumes:
+        - name: users-db
+          configMap:
+            name: authelia-users
+      extraVolumeMounts:
+        - name: users-db
+          mountPath: /config/users_database.yml
+          subPath: users_database.yml
     configMap:
       theme: dark
       server:
-        address: "tcp://0.0.0.0:9091/"
+        port: 9091
       log:
         level: info
       access_control:
@@ -45,7 +46,6 @@ spec:
       session:
         cookies:
           - domain: smb-111.azby.fr
-            authelia_url: https://auth.smb-111.azby.fr
             default_redirection_url: https://auth.smb-111.azby.fr
       storage:
         local:
