@@ -11,7 +11,7 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   rules:
-  - host: longhorn.azby.fr
+  - host: longhorn.smb-111.azby.fr
     http:
       paths:
       - path: /
@@ -23,5 +23,5 @@ spec:
               number: 80
   tls:
   - hosts:
-    - longhorn.azby.fr
+    - longhorn.smb-111.azby.fr
     secretName: longhorn-tls
