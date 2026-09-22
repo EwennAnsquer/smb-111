@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: longhorn-basic-auth
+  namespace: longhorn-system
+type: Opaque
+data:
+  users: YWRtaW46JGFwcjEkc2hmZXpKWVAkci9TNGJ0UjFKTUQxNm5BaENQaHNMMQoK
