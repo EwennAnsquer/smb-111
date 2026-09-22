@@ -19,7 +19,7 @@ spec:
     - kind: Secret
       name: authelia-secret
       valuesKey: SESSION_SECRET
-      targetPath: configMap.session.secret
+      targetPath: secret.values.session.secret
   values:
     configMap:
       theme: dark
@@ -36,7 +36,6 @@ spec:
       session:
         cookies:
           - domain: smb-111.azby.fr
-            authelia_url: https://auth.smb-111.azby.fr
             default_redirection_url: https://auth.smb-111.azby.fr
       storage:
         local:
