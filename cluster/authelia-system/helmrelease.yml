@@ -15,12 +15,9 @@ spec:
         namespace: authelia-system
       version: 0.11.22
   interval: 1m0s
-  valuesFrom:
-    - kind: Secret
-      name: authelia-secret
-      valuesKey: SESSION_SECRET
-      targetPath: secret.session.secret
   values:
+    secret:
+      existingSecret: authelia-secret
     configMap:
       theme: dark
       default_redirection_url: https://auth.smb-111.azby.fr
