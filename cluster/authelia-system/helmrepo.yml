@@ -1,0 +1,9 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: authelia
+  namespace: authelia-system
+spec:
+  interval: 1m0s
+  url: https://charts.authelia.com
