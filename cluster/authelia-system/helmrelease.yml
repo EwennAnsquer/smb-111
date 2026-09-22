@@ -15,3 +15,32 @@ spec:
         namespace: authelia-system
       version: 0.11.22
   interval: 1m0s
+  valuesFrom:
+    - kind: Secret
+      name: authelia-secret
+      valuesKey: SESSION_SECRET
+      targetPath: config.session.secret
+  values:
+    config:
+      theme: dark
+      default_redirection_url: https://auth.smb-111.azby.fr
+      server:
+        port: 9091
+      log:
+        level: info
+      authentication_backend:
+        file:
+          path: /config/users_database.yml
+          password:
+            algorithm: argon2
+      session:
+        cookies:
+          - domain: smb-111.azby.fr
+            authelia_url: https://auth.smb-111.azby.fr
+            default_redirection_url: https://auth.smb-111.azby.fr
+      storage:
+        local:
+          path: /config/db.sqlite3
+      notifier:
+        filesystem:
+          filename: /config/notification.txt
