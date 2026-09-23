@@ -30,8 +30,6 @@ spec:
           readOnly: true
     configMap:
       theme: dark
-      server:
-        address: 'tcp://0.0.0.0:9091/'
       log:
         level: info
       authentication_backend:
