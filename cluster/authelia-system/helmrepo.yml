@@ -5,5 +5,5 @@ metadata:
   name: authelia
   namespace: authelia-system
 spec:
-  interval: 1m0s
+  interval: 12h
   url: https://charts.authelia.com

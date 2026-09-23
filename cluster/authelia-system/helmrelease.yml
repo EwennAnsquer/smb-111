@@ -5,16 +5,16 @@ metadata:
   name: authelia-release
   namespace: authelia-system
 spec:
+  interval: 10m
   chart:
     spec:
       chart: authelia
-      reconcileStrategy: ChartVersion
+      version: 0.11.22
       sourceRef:
         kind: HelmRepository
         name: authelia
         namespace: authelia-system
-      version: 0.11.22
-  interval: 1m0s
+      reconcileStrategy: ChartVersion
   values:
     secret:
       existingSecret: authelia-secret
@@ -27,6 +27,7 @@ spec:
         - name: users-db
           mountPath: /config/users_database.yml
           subPath: users_database.yml
+          readOnly: true
     configMap:
       theme: dark
       server:
@@ -36,11 +37,6 @@ spec:
       authentication_backend:
         file:
           path: /config/users_database.yml
-        password_reset:
-          disable: false
-          custom_url: ''
-        password_change:
-          disable: false
       storage:
         local:
           path: /config/db.sqlite3
@@ -55,6 +51,5 @@ spec:
       session:
         cookies:
           - domain: smb-111.azby.fr
-            authelia_url: https://auth.smb-111.azby.fr
+            subdomain: auth
             default_redirection_url: https://auth.smb-111.azby.fr
-
