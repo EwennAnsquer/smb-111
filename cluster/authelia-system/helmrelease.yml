@@ -103,21 +103,16 @@ spec:
           filename: /config/notification.txt
 
       authentication_backend:
+        password_reset:
+          disable: true    # le compte bind est en lecture seule
+        password_change:
+          disable: true
         ldap:
           enabled: true
-          implementation: custom
-          address: ldap://lldap.lldap-system.svc.cluster.local:3890   # <-- service lldap
-          base_dn: dc=azby,dc=fr                                       # <-- doit correspondre à la base DN de lldap
-          additional_users_dn: ou=people
-          additional_groups_dn: ou=groups
-          users_filter: '(&({username_attribute}={input})(objectClass=person))'
-          groups_filter: '(member={dn})'
-          user: uid=authelia,ou=people,dc=azby,dc=fr               # <-- compte de service lldap
-          attributes:
-            username: uid
-            display_name: displayName
-            mail: mail
-            group_name: cn
+          implementation: lldap
+          address: ldap://lldap.lldap-system.svc.cluster.local:3890
+          base_dn: dc=azby,dc=fr
+          user: uid=authelia,ou=people,dc=azby,dc=fr
 
       access_control:
         default_policy: deny
