@@ -7,10 +7,11 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.middlewares: longhorn-system-longhorn-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   rules:
+#    ensuite, le mot de passe admin se change dans l'interface web0
   - host: longhorn.smb-111.azby.fr
     http:
       paths:

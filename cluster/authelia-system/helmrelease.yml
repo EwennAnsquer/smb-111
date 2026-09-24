@@ -117,5 +117,8 @@ spec:
       access_control:
         default_policy: deny
         rules:
+          - domain: 'longhorn.smb-111.azby.fr'
+            policy: one_factor
+            subject: 'group:admin'
           - domain: '*.smb-111.azby.fr'
-            policy: one_factor           # passer en two_factor quand TOTP/WebAuthn est enrôlé
+            policy: one_factor
