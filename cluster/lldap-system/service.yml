@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lldap
+  namespace: lldap-system
+  labels:
+    app.kubernetes.io/name: lldap
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: lldap
+  ports:
+    - name: ldap          # utilisé par Authelia : ldap://lldap.lldap-system.svc.cluster.local:3890
+      port: 3890
+      targetPort: ldap
+    - name: http          # interface web (exposée via l'Ingress)
+      port: 17170
+      targetPort: http
