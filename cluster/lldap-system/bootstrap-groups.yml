@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lldap-bootstrap-groups
+  namespace: lldap-system
+data:
+  admins.json: |
+    {"name": "admin"}
+  users.json: |
+    {"name": "user"}

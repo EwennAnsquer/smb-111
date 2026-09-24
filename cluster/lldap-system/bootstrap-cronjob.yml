@@ -1,0 +1,65 @@
+---
+# Applique périodiquement l'état déclaré (groupes + utilisateurs) dans lldap,
+# avec le script officiel /app/bootstrap.sh fourni dans l'image lldap.
+# Idempotent : on peut le relancer à volonté, et il rattrape tout seul un lldap
+# qui n'était pas encore prêt lors d'une exécution précédente.
+#
+# Lancement immédiat (sans attendre le prochain créneau) :
+#   kubectl create job --from=cronjob/lldap-bootstrap bootstrap-now -n lldap-system
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lldap-bootstrap
+  namespace: lldap-system
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          restartPolicy: OnFailure
+          enableServiceLinks: false
+          containers:
+            - name: bootstrap
+              image: lldap/lldap:stable       # même image que le serveur (contient bootstrap.sh)
+              command: ["/app/bootstrap.sh"]  # on court-circuite l'entrypoint du serveur
+              env:
+                - name: LLDAP_URL
+                  value: http://lldap.lldap-system.svc.cluster.local:17170
+                - name: LLDAP_ADMIN_USERNAME
+                  value: admin
+                - name: LLDAP_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: lldap-secrets
+                      key: admin-password
+                # Passe à "true" pour supprimer aussi les utilisateurs/groupes
+                # absents des fichiers (état 100 % piloté par git).
+                # ⚠️ Vérifie que TOUS tes comptes (dont "authelia") sont déclarés avant.
+                - name: DO_CLEANUP
+                  value: "false"
+              volumeMounts:
+                - name: groups
+                  mountPath: /bootstrap/group-configs
+                  readOnly: true
+                - name: users
+                  mountPath: /bootstrap/user-configs
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: groups
+              configMap:
+                name: lldap-bootstrap-groups
+            - name: users
+              secret:
+                secretName: lldap-bootstrap-users

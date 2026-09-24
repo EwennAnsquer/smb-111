@@ -1,0 +1,39 @@
+# Utilisateurs lldap déclarés en code (contient des mots de passe en clair :
+# à CHIFFRER avec SOPS avant de le pousser dans git).
+#
+# - Un fichier .json par utilisateur.
+# - Mot de passe : 8 caractères minimum (sinon lldap refuse).
+# - "groups" accepte les groupes déclarés dans bootstrap-groups.yml
+#   ainsi que les groupes intégrés de lldap (lldap_admin, lldap_password_manager,
+#   lldap_strict_readonly).
+# - Les mots de passe sont réappliqués à chaque exécution du CronJob :
+#   ce fichier est la source de vérité (un changement fait dans l'interface web sera écrasé).
+apiVersion: v1
+kind: Secret
+metadata:
+    name: lldap-bootstrap-users
+    namespace: lldap-system
+type: Opaque
+stringData:
+    #ENC[AES256_GCM,data:LSVFnUDp1WkOUDevqYZXBGCrc6yM6Q3QSLAPOpDT5Q21jvFOXKttDfy7L4OVcXzpPejZ+EruqSwyRs3v21U=,iv:HhemTRqb0pHE27oNgMLI7w3ard0zLgmTk2LyTXpKPAA=,tag:qEVCJWGD2DFuDZs5ojHdrQ==,type:comment]
+    #ENC[AES256_GCM,data:VEXoFs3X++Drop0k2VRT6ZjRFJsFAU5hSVhqlQoXIco0FL6Uz54aMJYrzjNxc40IOilIOgTyUWmqkJLQ7/5WoiaRMARTYl0sdcgJxA==,iv:KHhRgYdIB3k4j8iS5f2NS9AoW7ASgR5exGEXIMbbhZM=,tag:t+cMvwckDEtOp459lr0qZQ==,type:comment]
+    #ENC[AES256_GCM,data:aEuiRwm9wEmAajpaSkKdY5kxlZ1yeFAeCP8v/Mlju2wC7awMu5VLQ2ZW+Isg,iv:37Lz1XA9kHJVqQyyU8Pm6yl2yZlttEsKT3CeyQacnbI=,tag:KElBBDRNfbIOxjwUynA8eA==,type:comment]
+    authelia.json: ENC[AES256_GCM,data:IVgJnzZND9a2vh83SKi41fhHnsbChkZpbFBU2D8adtglCOpr2/nCidhIKnJ1nKFBwK49Abnmy7s0HmJB//cznH3dfqpUJuoIj6qTOiV/0ecc2nWa8fEkWoCxr3iNqwpf/frQfNd1PmullMDyJv4jFohI3UYBeB8HbD1kctJR9KN+hypLTyUJXR4Pc6k02HaDB+KA3pBgdmj5lj69etQ=,iv:VwFJvc/gv6QQx0+hLdieduC+Ssa796nEhveOdDQvpCA=,tag:zH54jCe+ipuiDiPSL8wZew==,type:str]
+    mathieu.json: ENC[AES256_GCM,data:g5XV0+4JRoYGGIsBPS6OoyXum1vUg6tal9MVYIEDcKvw1ER/XHbdqnC0Sbaa7zrQtJCVIi6HTsJuZ4oqxSth3ClF4DywX69LFBWB2qozZoNjHfta0sl5UFn2ucQD8mJeD61yeXN1pvteYqyb9vGV34hU8XSHowMTcUeBXfaK7u3R/iU55KtCAj2nit5ced5scwDXit49d6d3rPp7TBBUpbmF6/pdfpnzfViBGNCUs+l29jvUBY5pri/RBsw3zoT1OPhIMXSA0LjESFW9wCGspOCQfYD58yJAGlo=,iv:6kCloq+x48B/6O2rsC57rO/8Hxn/qnpOi3jpBJHv41w=,tag:xqYh+pr6DeaqGarms2h0uA==,type:str]
+    gerald.json: ENC[AES256_GCM,data:DlGWgo106azYnIZhmszgW/bPNiHQgoqzJn/67hXKobv3WBFvNsOUUxJdDsatXErV7cKj+CYWoMMF6JgC9M5Af9TYuoRoI8sShENkown0HHFJaCXnyesNlreJ8+TjS4vDiZ4mYMZnG7yrIJexLXK7aBs4+JIzQl2/aOWGY43k82tBVaGRcyxelo76+Z4hR7o1SHYGzVCsu7/LMwizmsq2bI6wIcECbm6EnKWF8hJIOitekVq1+0oFDqabBrIoidnQJl0CivU=,iv:GFy2HxUd+YhASoijCMWb7bqCbNIoxHhER8NzpWvqtRQ=,tag:LSe7bGStEgTDmlklnBYRRw==,type:str]
+    manon.json: ENC[AES256_GCM,data:gD7f7kfle2O2KMsYAIlGKTjGE5Ablp1mBWn8+3wVsuJJjbKytjZ+be2TwH6+10ksXsidfDJz10egmQeUL3g6CjNUmxa+dHilakxJHctQ9fczCJOwuJhJNJwIKALtF/GytHQs6RsSmFFAd/TPkMoYr2h69QhCtAdlKcjdu53bXNCryauV3fNns8w7agFBXel30rFkTDtvx5g4XCwR0V9rIY6AEWv3AHWh/5luk+DTCyytqkMTqDKusrcAettjCpZg,iv:aeQfsn2xenAUa/EszV/JJGbN7HDwKvnsq3EpYOgc8sk=,tag:3xCmcgWduw1yP/G5Fd7V2g==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxb2ZGaVBNSTlpT2kzYWJF
+            QW9CUEMxaERyT29laVNMRFUxYSs3TVovT0dnClFhczBLTHFOb3dVanJaSU1VRmwv
+            a0E3cVRSTHBKb0o0M1EvY3hCNmNQR3MKLS0tIGxLNjFOM0Y1QXJLR1B1QUZMNzZX
+            K241MW5VUFhUZDl0Y3R6c3BEWHIrVDQKP36qu5tn8gJqOttmVEf4uNr8Ziudj6Fd
+            cNvfEqNYHiMEheXU9LPHaJpIyb2Skz2l0Iw+kbBgYbm+F5HiXBryFw==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-09-24T20:31:16Z"
+    mac: ENC[AES256_GCM,data:KxaFfk7RAFmUD04m7s0ZJZTgctwxvmQG2ZYB2LoiaYFWTLr6Owsr6Y/xF4T/Zff+a8F7En2RVSpq7fBfBthfGJtpBP95RinGRV+H7OzrFKnugrJ8dnxc/kAxyru2+h3eW/wrz5wbEBZSzTdHG8hW8yjrqrOYv8W5YSsPnD0azyo=,iv:4wVeZX987LpQEoNcAc8S+hjiDOnHOeNueW7/cvbuUuI=,tag:gjfwBIfqf4DoiM7n0wj2YA==,type:str]
+    version: 3.13.3
