@@ -2,52 +2,125 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: authelia-release
+  name: authelia
   namespace: authelia-system
 spec:
-  interval: 10m
+  interval: 30m
+  timeout: 10m
+  releaseName: authelia
   chart:
     spec:
       chart: authelia
-      version: 0.11.22
+      # Chart 0.11.x (Authelia 4.39.x). Voir les versions : helm search repo authelia/authelia --versions
+      version: '0.11.x'
       sourceRef:
         kind: HelmRepository
         name: authelia
         namespace: authelia-system
-      reconcileStrategy: ChartVersion
+      interval: 12h
+  install:
+    # Tant que lldap n'est pas déployé, Authelia ne démarre pas (connexion LDAP au boot) :
+    # Flux retentera jusqu'à ce que ça passe.
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
   values:
-    secret:
-      existingSecret: authelia-secret
+    # ------------------------------------------------------------------
+    # Pod
+    # ------------------------------------------------------------------
     pod:
-      extraVolumes:
-        - name: users-db
-          configMap:
-            name: authelia-users
-      extraVolumeMounts:
-        - name: users-db
-          mountPath: /config/users_database.yml
-          subPath: users_database.yml
-          readOnly: true
+      kind: Deployment          # le chart utilise DaemonSet par défaut
+      replicas: 1               # SQLite + session en mémoire => 1 seul réplica
+      strategy:
+        type: Recreate          # évite deux pods sur le même PVC (ReadWriteOnce)
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 512Mi         # argon2 est gourmand en mémoire au login
+
+    # SQLite + notifications sur un PVC (StorageClass par défaut de k3s : local-path)
+    persistence:
+      enabled: true
+      size: 1Gi
+
+    # Secrets : on utilise un Secret existant (secret.yml) plutôt que de laisser
+    # le chart en générer, pour que les clés soient stables et gérées via GitOps.
+    secret:
+      existingSecret: authelia-secrets
+
+    # ------------------------------------------------------------------
+    # Traefik (k3s) : Ingress standard, comme tes autres apps (ex. longhorn)
+    # ------------------------------------------------------------------
+    ingress:
+      enabled: true
+      annotations:
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      tls:
+        enabled: true
+        secret: authelia-tls    # certificat créé par cert-manager via l'annotation ci-dessus
+      traefikCRD:
+        enabled: true           # génère les Middlewares Traefik (forwardAuth, chaînes)
+        disableIngressRoute: true   # on garde un Ingress standard plutôt qu'une IngressRoute
+
+    # ------------------------------------------------------------------
+    # Configuration Authelia (configuration.yaml)
+    # ------------------------------------------------------------------
     configMap:
-      theme: dark
+      theme: auto
       log:
         level: info
-      authentication_backend:
-        file:
-          path: /config/users_database.yml
-      storage:
-        local:
-          path: /config/db.sqlite3
-      notifier:
-        filesystem:
-          filename: /config/notification.txt
-      access_control:
-        default_policy: deny
-        rules:
-          - domain: "*.smb-111.azby.fr"
-            policy: one_factor
+
+      server:
+        endpoints:
+          # Crée l'endpoint /api/authz/forward-auth utilisé par Traefik
+          automatic_authz_implementations:
+            - ForwardAuth
+
+      # Domaine de cookie + URL du portail : https://auth.smb-111.azby.fr
       session:
         cookies:
           - domain: smb-111.azby.fr
             subdomain: auth
-            default_redirection_url: https://auth.smb-111.azby.fr
+            default_redirection_url: https://longhorn.smb-111.azby.fr
+
+      storage:
+        local:
+          enabled: true
+          path: /config/db.sqlite3
+
+      # Pas de SMTP pour l'instant : les codes/liens sont écrits dans un fichier
+      # (kubectl exec -n authelia-system deploy/authelia -- cat /config/notification.txt)
+      notifier:
+        filesystem:
+          enabled: true
+          filename: /config/notification.txt
+
+      authentication_backend:
+        ldap:
+          enabled: true
+          implementation: custom
+          address: ldap://lldap.lldap-system.svc.cluster.local:3890   # <-- service lldap
+          base_dn: dc=azby,dc=fr                                       # <-- doit correspondre à la base DN de lldap
+          additional_users_dn: ou=people
+          additional_groups_dn: ou=groups
+          users_filter: '(&({username_attribute}={input})(objectClass=person))'
+          groups_filter: '(member={dn})'
+          user: uid=authelia,ou=people,dc=azby,dc=fr               # <-- compte de service lldap
+          attributes:
+            username: uid
+            display_name: displayName
+            mail: mail
+            group_name: cn
+
+      access_control:
+        default_policy: deny
+        rules:
+          - domain: '*.smb-111.azby.fr'
+            policy: one_factor           # passer en two_factor quand TOTP/WebAuthn est enrôlé
