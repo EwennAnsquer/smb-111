@@ -7,7 +7,14 @@ PROJECT_DIR=$(pwd)
 # 1. Déploiement Terraform
 cd $PROJECT_DIR/terraform
 terraform init
-terraform apply -var-file="secrets.tfvars" -auto-approve
+
+# crée un fichier temporaire avec le secret déchiffrer et le donne à terraform
+TMP_VARS=$(mktemp --suffix=.tfvars.json)
+trap 'rm -f "$TMP_VARS"' EXIT
+
+sops -d secrets.enc.tfvars.json >"$TMP_VARS"
+
+terraform apply -var-file="$TMP_VARS" -auto-approve
 
 # On se place dans le dossier ansible en avance pour avoir accès à inventory.ini
 cd $PROJECT_DIR/ansible

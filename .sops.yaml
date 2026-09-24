@@ -1,4 +1,6 @@
 creation_rules:
-  - path_regex: .*\.yml
+  - path_regex: .*\.(yml|yaml)$
     encrypted_regex: '^(data|stringData)$'
+    age: "age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a"
+  - path_regex: .*\.(tfvars|json)$
     age: "age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a"
