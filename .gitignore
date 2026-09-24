@@ -31,3 +31,6 @@ config-k3s
 *.swp
 *.log
 ansible/vars/secrets.yml
+
+# --- AGE ---
+age.agekey
