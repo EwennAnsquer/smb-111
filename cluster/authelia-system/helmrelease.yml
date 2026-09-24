@@ -117,6 +117,9 @@ spec:
       access_control:
         default_policy: deny
         rules:
+          - domain: 'lldap.smb-111.azby.fr'
+            policy: one_factor
+            subject: 'group:admin'
           - domain: 'longhorn.smb-111.azby.fr'
             policy: one_factor
             subject: 'group:admin'
