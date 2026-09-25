@@ -35,3 +35,4 @@ ansible/vars/secrets.yml
 # --- AGE ---
 age.agekey
 bootstrap-users.yml
+backup-secret.yml
