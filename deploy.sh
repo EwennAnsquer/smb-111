@@ -4,20 +4,20 @@ set -e
 
 PROJECT_DIR=$(pwd)
 
+# Nettoyage automatique des fichiers temporaires à la fin du script
+TMP_VARS=$(mktemp --suffix=.tfvars.json)
+TMP_ANSIBLE_VARS=$(mktemp --suffix=.yml)
+trap 'rm -f "$TMP_VARS" "$TMP_ANSIBLE_VARS"' EXIT
+
 # 1. Déploiement Terraform
-cd $PROJECT_DIR/terraform
+cd "$PROJECT_DIR/terraform"
 terraform init
 
-# crée un fichier temporaire avec le secret déchiffrer et le donne à terraform
-TMP_VARS=$(mktemp --suffix=.tfvars.json)
-trap 'rm -f "$TMP_VARS"' EXIT
-
 sops -d secrets.enc.tfvars.json >"$TMP_VARS"
-
 terraform apply -var-file="$TMP_VARS" -auto-approve
 
 # On se place dans le dossier ansible en avance pour avoir accès à inventory.ini
-cd $PROJECT_DIR/ansible
+cd "$PROJECT_DIR/ansible"
 
 echo -e "\nRécupération dynamique des adresses IP depuis l'inventaire Ansible..."
 # Extraction des IPs : on cherche "ansible_host=", on coupe la ligne et on garde juste l'IP
@@ -42,4 +42,7 @@ done
 
 # 3. Lancement d'Ansible
 echo -e "\nLancement du playbook Ansible..."
-ansible-playbook -i inventory.ini playbook.yml
+export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
+
+sops -d vars/secrets.enc.yml >"$TMP_ANSIBLE_VARS"
+ansible-playbook -i inventory.ini playbook.yml -e @"$TMP_ANSIBLE_VARS"
