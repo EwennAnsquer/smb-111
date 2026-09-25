@@ -2,6 +2,8 @@
 
 Ce projet permet de provisionner automatiquement une infrastructure de machines virtuelles sur **n'importe quel hyperviseur Proxmox VE**, puis de configurer un cluster **K3s** et **FluxCD** via **Ansible**.
 
+Tous les secrets du projet (variables Terraform, secrets Ansible, secrets Kubernetes) sont chiffrés avec **SOPS** et **age**, ce qui permet de les stocker en toute sécurité directement dans le dépôt Git.
+
 ---
 
 ## 🛠️ OUTILS ET PRÉREQUIS
@@ -15,21 +17,41 @@ Avant de commencer, assurez-vous d'avoir installé les outils suivants sur votre
 - **[kubectl](https://kubernetes.io/docs/tasks/tools/)** : CLI officielle de Kubernetes.
 - **[k9s](https://k9scli.io/)** : Interface TUI pour gérer le cluster.
 - **[FluxCD](https://fluxcd.io/)** : Outil de déploiement continu GitOps.
+- **[SOPS](https://github.com/getsops/sops)** : Outil de chiffrement de fichiers de configuration (YAML, JSON).
+- **[age](https://github.com/FiloSottile/age)** : Outil de chiffrement à clé publique utilisé par SOPS.
 - Un compte **[GitHub](https://github.com/)** avec un token d'accès personnel (PAT) pour FluxCD.
 - Un nom de domaine géré chez **[OVH](https://www.ovh.com/)** pour la génération automatique de certificats SSL Let's Encrypt (DNS-01).
 
 ---
 
-## 🔑 ÉTAPE 1 : Configuration des clés SSH sur Proxmox
+## 🔑 ÉTAPE 1 : Configuration de la clé age pour SOPS
+
+Les secrets du projet sont chiffrés avec une clé **age**. Pour pouvoir déployer l'infrastructure, vous devez disposer de la clé privée correspondante sur votre machine.
+
+1. Créez le dossier de configuration SOPS s'il n'existe pas :
+   ```bash
+   mkdir -p ~/.config/sops/age
+   ```
+2. Placez votre clé privée `age` dans le fichier `keys.txt` :
+   ```bash
+   nano ~/.config/sops/age/keys.txt
+   ```
+3. Vérifiez les permissions du fichier :
+   ```bash
+   chmod 600 ~/.config/sops/age/keys.txt
+   ```
+
+---
+
+## 🔑 ÉTAPE 2 : Configuration des clés SSH sur Proxmox
 
 Pour que Terraform et Ansible puissent configurer les VMs via Cloud-Init et SSH, une clé SSH publique doit être présente sur l'hyperviseur Proxmox cible.
 
 ### 1. Vérifier ou créer votre clé SSH sur la machine `devops`
-Vérifiez si vous possédez déjà une clé SSH :
 ```bash
 ls -la ~/.ssh/id_ed25519.pub
 ```
-Si vous n'en avez pas, génerer une nouvelle paire de clés :
+Si vous n'en avez pas, générez une nouvelle paire de clés :
 ```bash
 ssh-keygen -t ed25519 -C "admin-smb111"
 ```
@@ -37,13 +59,12 @@ ssh-keygen -t ed25519 -C "admin-smb111"
 ### 2. Ajouter la clé sur l'environnement Proxmox
 - Copiez le contenu de votre clé publique (`cat ~/.ssh/id_ed25519.pub`).
 - Sur l'interface Proxmox VE, rendez-vous dans **Datacenter** -> **Users** -> sélectionnez votre utilisateur -> **Edit** -> collez votre clé dans le champ **SSH Public Key**.
-- *(Alternative)* Si vous utilisez une image modèle Cloud-Init, assurez-vous que cette clé est injectée dans les paramètres Cloud-Init du template Proxmox.
 
 ---
 
-## 🎟️ ÉTAPE 2 : Création du token API Proxmox
+## 🎟️ ÉTAPE 3 : Token API Proxmox
 
-Le projet s'adapte à n'importe quel serveur Proxmox VE. Vous devez générer un token d'accès API :
+Pour permettre à Terraform de communiquer avec Proxmox :
 
 1. Connectez-vous à l'interface Web de votre serveur Proxmox.
 2. Allez dans **Datacenter** -> **Permissions** -> **API Tokens**.
@@ -51,116 +72,39 @@ Le projet s'adapte à n'importe quel serveur Proxmox VE. Vous devez générer un
    - Sélectionnez votre utilisateur.
    - Entrez un **Token ID** (ex: `terraform`).
    - **Décochez impérativement** la case **"Privilege Separation"**.
-4. Copiez le Secret du Token généré.
+4. Le token et les identifiants requis sont déjà chiffrés dans le fichier `terraform/secrets.enc.tfvars.json`.
 
 ---
 
-## ⚙️ ÉTAPE 3 : Configuration du projet
+## ⚙️ ÉTAPE 4 : Gestion des Secrets avec SOPS
 
-### 1. Terraform (Cible Proxmox & Secret API)
-Rendez-vous dans le dossier `terraform/` :
+Tous les secrets sont versionnés directement dans le dépôt sous forme chiffrée. **Aucun fichier de modèle `.example` n'est nécessaire.**
 
+### Fichiers de secrets du projet :
+- **Terraform :** `terraform/secrets.enc.tfvars.json` (Contient le token API Proxmox et les accès).
+- **Ansible :** `ansible/vars/secrets.enc.yml` (Contient le token GitHub pour FluxCD).
+- **Kubernetes / Flux :** Les secrets Kubernetes (comme `ovh-credentials` dans `cluster/cert-manager-system/`) sont chiffrés avec SOPS et appliqués automatiquement au cluster.
+
+Si vous devez modifier un fichier de secrets chiffré, utilisez SOPS :
 ```bash
-cd terraform/
-cp secrets.tfvars.example secrets.tfvars
+sops terraform/secrets.enc.tfvars.json
+sops ansible/vars/secrets.enc.yml
 ```
-
-Éditez `secrets.tfvars` et collez votre token Proxmox :
-```hcl
-proxmox_api_token = "votre_token_api_proxmox_ici"
-```
-
-Ajustez ensuite le fichier `terraform.tfvars.json` pour cibler votre serveur Proxmox et définir votre réseau :
-```json
-{
-  "proxmox_endpoint": "https://<IP-OU-FQDN-DE-VOTRE-PROXMOX>:8006",
-  "proxmox_node_name": "<NOM-DU-NOEUD-PROXMOX>",
-  "gateway": "192.168.1.1",
-  "masters": {
-    "k3s-master-0": { "id": 6100, "ip": "192.168.1.205", "ram": 4096, "cores": 2 },
-    "k3s-master-1": { "id": 6101, "ip": "192.168.1.206", "ram": 4096, "cores": 2 },
-    "k3s-master-2": { "id": 6102, "ip": "192.168.1.207", "ram": 4096, "cores": 2 }
-  },
-  "workers": {
-    "k3s-worker-0": { "id": 6103, "ip": "192.168.1.208", "ram": 4096, "cores": 2 },
-    "k3s-worker-1": { "id": 6104, "ip": "192.168.1.209", "ram": 4096, "cores": 2 }
-  }
-}
-```
-
-### 2. Ansible (Secrets GitHub)
-Rendez-vous dans le dossier `ansible/vars/` :
-
-```bash
-cd ../ansible/vars/
-cp secrets.yml.example secrets.yml
-```
-
-Éditez `secrets.yml` avec votre token GitHub :
-```yaml
-# ansible/vars/secrets.yml
-github_token: "ghp_votre_token_github_ici"
-```
-
-### 3. Cert-Manager & Clés API OVH (Gestion exclusive OVH)
-> ⚠️ **Note importante :** La résolution DNS-01 configurée dans ce cluster s'appuie exclusivement sur le webhook **OVH**. Elle requiert un nom de domaine dont la zone DNS est hébergée chez OVH.
-
-1. Générez un jeu de clés d'API OVH sur [eu.api.ovh.com/createToken](https://eu.api.ovh.com/createToken/) (Droits requis : `GET /domain/zone/*`, `POST /domain/zone/*`, `DELETE /domain/zone/*`).
-2. Créez votre fichier de secrets locaux à partir du modèle :
-   ```bash
-   cd ../../cluster/cert-manager-system/
-   cp ovh-credentials.yml.example ovh-credentials.yml
-   ```
-3. Renseignez vos identifiants OVH dans `ovh-credentials.yml` :
-   ```yaml
-   apiVersion: v1
-   kind: Secret
-   metadata:
-     name: ovh-credentials
-     namespace: cert-manager-system
-   type: Opaque
-   stringData:
-     applicationKey: "VOTRE_APPLICATION_KEY"
-     applicationSecret: "VOTRE_APPLICATION_SECRET"
-     consumerKey: "VOTRE_CONSUMER_KEY"
-   ```
-4. *(Méthode recommandée pour GitOps)* **Ne commitez pas** `ovh-credentials.yml` en clair sur Git. Appliquez le Secret directement sur le cluster via `kubectl` ou chiffrez-le avec SOPS/Sealed Secrets.
 
 ---
 
-## 🚀 ÉTAPE 4 : Déploiement
+## 🚀 ÉTAPE 5 : Déploiement
 
-### Déploiement automatique
-À la racine du projet, lancez le script global :
+Le script `deploy.sh` s'occupe de déchiffrer temporairement les secrets nécessaires en mémoire, de provisionner les VMs Proxmox via Terraform, d'attendre la disponibilité du SSH, puis de déployer K3s et FluxCD via Ansible.
 
 ```bash
-cd smb-111
 chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### Déploiement manuel
-1. **Provisionner l'infrastructure Proxmox :**
-   ```bash
-   cd ~/work/smb-111/terraform
-   terraform init
-   terraform apply -var-file="secrets.tfvars"
-   ```
-
-2. **Déployer K3s et FluxCD :**
-   ```bash
-   cd ~/work/smb-111/ansible
-   ansible-playbook -i inventory.ini playbook.yml
-   ```
-
-3. **Appliquer les secrets OVH (si non gérés par GitOps) :**
-   ```bash
-   kubectl apply -f ../cluster/cert-manager-system/ovh-credentials.yml
-   ```
-
 ---
 
-## 🔍 ÉTAPE 5 : Connexion au Cluster et Lancement de K9s
+## 🔍 ÉTAPE 6 : Connexion au Cluster et Lancement de K9s
 
 ### Vérifier le cluster
 ```bash
@@ -175,40 +119,6 @@ kubectl get certificate -n default
 
 ### Lancer K9s
 Pour administrer votre cluster avec k9s :
-
 ```bash
 k9s --kubeconfig ~/.kube/config-k3s
-```
-
----
-
-## 📁 ARBORESCENCE DU PROJET (sûrement pas à jour)
-
-```text
-.
-├── deploy.sh                        # Script d'automatisation globale
-├── README.md                        # Documentation du projet
-├── terraform/
-│   ├── main.tf                      # Définition des VMs Proxmox
-│   ├── providers.tf                 # Provider Proxmox
-│   ├── terraform.tfvars.json        # Configuration du Proxmox cible et des VMs
-│   └── secrets.tfvars               # Token API Proxmox (ignoré par Git)
-├── ansible/
-│   ├── ansible.cfg                  # Configuration Ansible
-│   ├── inventory.ini                # Inventaire des nœuds K3s
-│   ├── playbook.yml                 # Playbook de déploiement K3s & FluxCD
-│   └── vars/
-│       ├── all.yml                  # Variables Ansible
-│       └── secrets.yml              # Token GitHub (ignoré par Git)
-└── cluster/
-    └── cert-manager-system/
-        ├── namespace.yml            # Namespace cert-manager-system
-        ├── helmrepo.yml             # Dépôt Helm Jetstack cert-manager
-        ├── helmrelease.yml          # Installation de cert-manager
-        ├── ovh-helmrepo.yml         # Dépôt Helm Webhook OVH
-        ├── ovh-helmrelease.yml      # Installation du Webhook OVH
-        ├── cluster-issuer.yml       # ClusterIssuer Let's Encrypt DNS-01 OVH
-        ├── certificate.yml          # Définition du certificat Wildcard
-        ├── ovh-credentials.yml.example  # Modèle de Secret pour l'API OVH
-        └── ovh-credentials.yml      # Secrets OVH réels (ignoré par Git)
 ```
