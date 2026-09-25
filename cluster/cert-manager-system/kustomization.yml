@@ -6,6 +6,7 @@ resources:
   - helmrelease.yml
   - ovh-helmrepo.yml
   - ovh-helmrelease.yml
+  - ovh-credentials.enc.yml
   - rbac-webhook-ovh.yml
   - cluster-issuer.yml
   - certificate.yml
