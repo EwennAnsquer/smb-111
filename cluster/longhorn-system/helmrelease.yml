@@ -14,3 +14,7 @@ spec:
         name: longhorn-repo
       version: v1.12.1
   interval: 1m0s
+  values:
+    defaultSettings:
+      backupTarget: "s3://smb-111@us-east-1/"
+      backupTargetSecret: "minio-backup-secret"
