@@ -33,14 +33,12 @@ spec:
       spec:
         retentionPeriod: '3'      # 3 mois d'historique, à ajuster selon l'espace disque
         storage:
-          volumeClaimTemplate:
-            spec:
-              storageClassName: longhorn
-              accessModes:
-                - ReadWriteOnce
-              resources:
-                requests:
-                  storage: 10Gi
+          storageClassName: longhorn
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
 
       # Interface web de VictoriaMetrics (vmui) : requêtes PromQL, explorateur de métriques.
       ingress:
@@ -128,7 +126,8 @@ spec:
         existingSecret: grafana-admin
         userKey: admin-user
         passwordKey: admin-password
-        plugins:
+
+      plugins:
         - victoriametrics-metrics-datasource
 
       env:
@@ -169,6 +168,4 @@ spec:
           - hosts:
               - grafana.smb-111.azby.fr
             secretName: grafana-tls
-
-      # Dashboards Kubernetes + datasource VictoriaMetrics préconfigurés par le chart,
 
