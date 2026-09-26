@@ -1,0 +1,157 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: victoria-metrics-k8s-stack
+  namespace: monitoring-system
+spec:
+  interval: 30m
+  timeout: 10m
+  releaseName: vm-stack
+  chart:
+    spec:
+      chart: victoria-metrics-k8s-stack
+      # Versions disponibles : helm search repo victoria-metrics/victoria-metrics-k8s-stack --versions
+      version: '0.x.x'
+      sourceRef:
+        kind: HelmRepository
+        name: victoria-metrics
+        namespace: monitoring-system
+      interval: 12h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # ------------------------------------------------------------------
+    # VictoriaMetrics (remplace Prometheus comme base de métriques)
+    # ------------------------------------------------------------------
+    vmsingle:
+      spec:
+        retentionPeriod: '3'      # 3 mois d'historique, à ajuster selon l'espace disque
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+
+      # Interface web de VictoriaMetrics (vmui) : requêtes PromQL, explorateur de métriques.
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - vmui.smb-111.azby.fr
+        path: /
+        tls:
+          - hosts:
+              - vmui.smb-111.azby.fr
+            secretName: vmui-tls
+
+    # vmalert : évalue les règles d'alerte (celles fournies par le chart + les tiennes)
+    vmalert:
+      enabled: true
+
+      # Interface web de vmalert : liste des règles, état des alertes.
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - vmalert.smb-111.azby.fr
+        path: /
+        tls:
+          - hosts:
+              - vmalert.smb-111.azby.fr
+            secretName: vmalert-tls
+
+    # Alertmanager : reste en "blackhole" par défaut (pas de notif configurée).
+    # À remplacer par un vrai receiver (mail, Slack...) quand tu en auras un.
+    alertmanager:
+      enabled: true
+      spec:
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi
+
+      # Interface web d'Alertmanager : alertes en cours, silences.
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - alertmanager.smb-111.azby.fr
+        path: /
+        tls:
+          - hosts:
+              - alertmanager.smb-111.azby.fr
+            secretName: alertmanager-tls
+
+    # kube-state-metrics + node-exporter : activés par défaut, rien à changer
+    kube-state-metrics:
+      enabled: true
+    prometheus-node-exporter:
+      enabled: true
+
+    # ------------------------------------------------------------------
+    # Grafana
+    # ------------------------------------------------------------------
+    grafana:
+      enabled: true
+
+      admin:
+        existingSecret: grafana-admin
+        userKey: admin-user
+        passwordKey: admin-password
+
+      persistence:
+        enabled: true
+        type: pvc
+        storageClassName: longhorn
+        accessModes:
+          - ReadWriteOnce
+        size: 1Gi
+
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - grafana.smb-111.azby.fr
+        path: /
+        tls:
+          - hosts:
+              - grafana.smb-111.azby.fr
+            secretName: grafana-tls
+
+      # Dashboards Kubernetes + datasource VictoriaMetrics préconfigurés par le chart,
+
