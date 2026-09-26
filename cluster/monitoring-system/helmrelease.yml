@@ -129,6 +129,21 @@ spec:
         userKey: admin-user
         passwordKey: admin-password
 
+      env:
+        GF_AUTH_PROXY_ENABLED: "true"
+        GF_AUTH_PROXY_HEADER_NAME: "Remote-User"
+        GF_AUTH_PROXY_HEADER_PROPERTY: "username"
+        GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+        GF_AUTH_PROXY_HEADERS: "Name:Remote-Name Email:Remote-Email"
+        GF_AUTH_PROXY_SYNC_TTL: "5"
+        # Coupe le formulaire de connexion classique (login/mot de passe local).
+        GF_AUTH_DISABLE_LOGIN_FORM: "true"
+        GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+        # Rôle donné par défaut à un nouvel utilisateur créé automatiquement.
+        # La correspondance groupe lldap -> rôle Grafana (Admin/Editor/Viewer)
+        # n'est pas possible en OSS via les en-têtes ; voir l'explication à côté.
+        GF_USERS_AUTO_ASSIGN_ORG_ROLE: "Viewer"
+
       persistence:
         enabled: true
         type: pvc
