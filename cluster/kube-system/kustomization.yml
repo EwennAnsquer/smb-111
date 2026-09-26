@@ -5,7 +5,7 @@ kind: Kustomization
 resources: []
 
 patches:
-  - path: coredns-patch.yaml
+  - path: coredns-patch.yml
     target:
       kind: ConfigMap
       name: coredns
