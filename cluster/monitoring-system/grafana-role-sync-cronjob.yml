@@ -1,0 +1,87 @@
+---
+# Applique périodiquement le rôle "Admin" aux comptes Grafana déclarés dans
+# grafana-admins.yml. Idempotent : ne fait rien si le rôle est déjà correct,
+# et rattrape tout seul un utilisateur qui ne s'est pas encore connecté une
+# première fois (son compte Grafana n'existe pas encore à ce moment-là).
+#
+# Lancement immédiat (sans attendre le prochain créneau) :
+#   kubectl create job --from=cronjob/grafana-role-sync role-sync-now -n monitoring-system
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: grafana-role-sync
+  namespace: monitoring-system
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          restartPolicy: OnFailure
+          enableServiceLinks: false
+          containers:
+            - name: role-sync
+              image: curlimages/curl:8.11.1
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  apk add --no-cache jq >/dev/null 2>&1 || true
+
+                  GRAFANA_URL="http://vm-stack-grafana.monitoring-system.svc.cluster.local"
+                  AUTH="admin:${GRAFANA_ADMIN_PASSWORD}"
+
+                  users_json=$(curl -sf -u "${AUTH}" "${GRAFANA_URL}/api/org/users")
+
+                  while IFS= read -r username; do
+                    # Ignore les lignes vides et les commentaires éventuels.
+                    [ -z "${username}" ] && continue
+                    case "${username}" in \#*) continue ;; esac
+
+                    user_id=$(echo "${users_json}" | jq -r --arg u "${username}" '.[] | select(.login==$u) | .userId')
+
+                    if [ -z "${user_id}" ] || [ "${user_id}" = "null" ]; then
+                      echo "info: ${username} n'a pas encore de compte Grafana (pas encore connecté) - on retentera au prochain passage"
+                      continue
+                    fi
+
+                    current_role=$(echo "${users_json}" | jq -r --arg u "${username}" '.[] | select(.login==$u) | .role')
+
+                    if [ "${current_role}" = "Admin" ]; then
+                      echo "ok: ${username} est déjà Admin"
+                      continue
+                    fi
+
+                    echo "promotion: ${username} (userId=${user_id}) -> Admin"
+                    curl -sf -u "${AUTH}" -X PATCH \
+                      -H "Content-Type: application/json" \
+                      -d '{"role":"Admin"}' \
+                      "${GRAFANA_URL}/api/org/users/${user_id}" >/dev/null
+                  done < /config/usernames.txt
+              env:
+                - name: GRAFANA_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: grafana-admin
+                      key: admin-password
+              volumeMounts:
+                - name: admins
+                  mountPath: /config
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+          volumes:
+            - name: admins
+              configMap:
+                name: grafana-admins
+

@@ -6,3 +6,5 @@ resources:
   - helmrepo.yml
   - secret.enc.yml
   - helmrelease.yml
+  - grafana-admin.yml
+  - grafana-role-sync-cronjob.yml

@@ -1,0 +1,14 @@
+---
+# Liste des comptes Grafana à promouvoir en "Admin".
+# Doit correspondre à des identifiants lldap : le compte doit s'être connecté
+# au moins une fois via Authelia pour que Grafana l'ait créé automatiquement
+# (auth proxy + auto_sign_up). Tant que ce n'est pas le cas, le CronJob le
+# retente à chaque passage, sans erreur bloquante.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-admins
+  namespace: monitoring-system
+data:
+  usernames.txt: |
+    authelia
