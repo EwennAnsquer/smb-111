@@ -123,5 +123,12 @@ spec:
           - domain: 'longhorn.smb-111.azby.fr'
             policy: one_factor
             subject: 'group:admin'
+          - domain:
+              - 'grafana.smb-111.azby.fr'
+              - 'vmui.smb-111.azby.fr'
+              - 'vmalert.smb-111.azby.fr'
+              - 'alertmanager.smb-111.azby.fr'
+            policy: one_factor
+            subject: 'group:admins'
           - domain: '*.smb-111.azby.fr'
             policy: one_factor
