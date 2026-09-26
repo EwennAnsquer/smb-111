@@ -128,6 +128,8 @@ spec:
         existingSecret: grafana-admin
         userKey: admin-user
         passwordKey: admin-password
+        plugins:
+        - victoriametrics-metrics-datasource
 
       env:
         GF_AUTH_PROXY_ENABLED: "true"
