@@ -10,7 +10,7 @@ data:
         errors
         health
         hosts {
-            192.168.1.160 minio-backend.azby.fr
+            192.168.1.220 minio-backend.azby.fr
             fallthrough
         }
         ready
