@@ -4,6 +4,10 @@
 # et rattrape tout seul un utilisateur qui ne s'est pas encore connecté une
 # première fois (son compte Grafana n'existe pas encore à ce moment-là).
 #
+# Écrit en Python (bibliothèque standard uniquement : json, urllib, base64)
+# pour éviter toute installation de paquet au runtime (apk/curl/jq), qui
+# échoue silencieusement dans l'image curlimages/curl (utilisateur non-root).
+#
 # Lancement immédiat (sans attendre le prochain créneau) :
 #   kubectl create job --from=cronjob/grafana-role-sync role-sync-now -n monitoring-system
 apiVersion: batch/v1
@@ -26,44 +30,8 @@ spec:
           enableServiceLinks: false
           containers:
             - name: role-sync
-              image: curlimages/curl:8.11.1
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -eu
-                  apk add --no-cache jq >/dev/null 2>&1 || true
-
-                  GRAFANA_URL="http://vm-stack-grafana.monitoring-system.svc.cluster.local"
-                  AUTH="admin:${GRAFANA_ADMIN_PASSWORD}"
-
-                  users_json=$(curl -sf -u "${AUTH}" "${GRAFANA_URL}/api/org/users")
-
-                  while IFS= read -r username; do
-                    # Ignore les lignes vides et les commentaires éventuels.
-                    [ -z "${username}" ] && continue
-                    case "${username}" in \#*) continue ;; esac
-
-                    user_id=$(echo "${users_json}" | jq -r --arg u "${username}" '.[] | select(.login==$u) | .userId')
-
-                    if [ -z "${user_id}" ] || [ "${user_id}" = "null" ]; then
-                      echo "info: ${username} n'a pas encore de compte Grafana (pas encore connecté) - on retentera au prochain passage"
-                      continue
-                    fi
-
-                    current_role=$(echo "${users_json}" | jq -r --arg u "${username}" '.[] | select(.login==$u) | .role')
-
-                    if [ "${current_role}" = "Admin" ]; then
-                      echo "ok: ${username} est déjà Admin"
-                      continue
-                    fi
-
-                    echo "promotion: ${username} (userId=${user_id}) -> Admin"
-                    curl -sf -u "${AUTH}" -X PATCH \
-                      -H "Content-Type: application/json" \
-                      -d '{"role":"Admin"}' \
-                      "${GRAFANA_URL}/api/org/users/${user_id}" >/dev/null
-                  done < /config/usernames.txt
+              image: python:3.12-alpine
+              command: ["python3", "/script/sync.py"]
               env:
                 - name: GRAFANA_ADMIN_PASSWORD
                   valueFrom:
@@ -73,6 +41,9 @@ spec:
               volumeMounts:
                 - name: admins
                   mountPath: /config
+                  readOnly: true
+                - name: script
+                  mountPath: /script
                   readOnly: true
               resources:
                 requests:
@@ -84,4 +55,84 @@ spec:
             - name: admins
               configMap:
                 name: grafana-admins
+            - name: script
+              configMap:
+                name: grafana-role-sync-script
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-role-sync-script
+  namespace: monitoring-system
+data:
+  sync.py: |
+    import base64
+    import json
+    import os
+    import sys
+    import urllib.error
+    import urllib.request
+
+    GRAFANA_URL = "http://vm-stack-grafana.monitoring-system.svc.cluster.local"
+    PASSWORD = os.environ["GRAFANA_ADMIN_PASSWORD"]
+    AUTH_HEADER = {
+        "Authorization": "Basic "
+        + base64.b64encode(f"admin:{PASSWORD}".encode()).decode()
+    }
+
+    def get_json(url, headers):
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.load(resp)
+
+    def patch_json(url, headers, payload):
+        body = json.dumps(payload).encode()
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={**headers, "Content-Type": "application/json"},
+            method="PATCH",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+
+    try:
+        users = get_json(f"{GRAFANA_URL}/api/org/users", AUTH_HEADER)
+    except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+        print(f"erreur: impossible de joindre Grafana ({exc}) - on retentera au prochain passage")
+        sys.exit(1)
+
+    by_login = {u["login"]: u for u in users}
+
+    with open("/config/usernames.txt") as f:
+        usernames = [
+            line.strip()
+            for line in f
+            if line.strip() and not line.strip().startswith("#")
+        ]
+
+    exit_code = 0
+    for username in usernames:
+        user = by_login.get(username)
+
+        if user is None:
+            print(f"info: {username} n'a pas encore de compte Grafana (pas encore connecté) - on retentera au prochain passage")
+            continue
+
+        if user["role"] == "Admin":
+            print(f"ok: {username} est déjà Admin")
+            continue
+
+        print(f"promotion: {username} (userId={user['userId']}) -> Admin")
+        try:
+            patch_json(
+                f"{GRAFANA_URL}/api/org/users/{user['userId']}",
+                AUTH_HEADER,
+                {"role": "Admin"},
+            )
+        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+            print(f"erreur: échec de la promotion de {username} ({exc})")
+            exit_code = 1
+
+    sys.exit(exit_code)
 
