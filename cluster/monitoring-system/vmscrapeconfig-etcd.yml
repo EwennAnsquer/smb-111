@@ -1,0 +1,23 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMScrapeConfig
+metadata:
+  name: k3s-etcd
+  namespace: monitoring-system
+spec:
+  kubernetesSDConfigs:
+    - role: node
+
+  relabelConfigs:
+    - action: keep
+      sourceLabels: ["__meta_kubernetes_node_label_node_role_kubernetes_io_control_plane"]
+      regex: "true"
+
+    - sourceLabels: ["__meta_kubernetes_node_address_InternalIP"]
+      targetLabel: __address__
+      replacement: "${1}:2381"
+
+    - targetLabel: job
+      replacement: kube-etcd
+
+  scheme: http
