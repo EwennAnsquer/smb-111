@@ -27,18 +27,23 @@ spec:
     remediation:
       retries: 3
   values:
-    # ------------------------------------------------------------------
-    # Dashboards par défaut : on retire le paquet de dashboards qui ne
-    # concernent pas ton architecture (Windows, macOS, Prometheus natif -
-    # tu utilises VictoriaMetrics, pas Prometheus). "Controller Manager" et
-    # "Scheduler" restent inchangés (interrupteurs séparés, déjà actifs).
-    #
-    # ⚠️ Ce paquet regroupe PLUSIEURS dashboards d'un coup (pas de réglage
-    # fin par fichier dans ce chart) : vérifie après coup dans Grafana que
-    # rien d'autre d'utile n'a disparu avec.
     defaultDashboards:
-      sources:
-        kube-prometheus:
+      dashboards:
+        k8s-resources-windows-cluster:
+          enabled: false
+        k8s-resources-windows-namespace:
+          enabled: false
+        k8s-resources-windows-pod:
+          enabled: false
+        k8s-windows-cluster-rsrc-use:
+          enabled: false
+        k8s-windows-node-rsrc-use:
+          enabled: false
+        nodes-darwin:            # "Node Exporter / MacOS"
+          enabled: false
+        prometheus:               # "Prometheus / Overview"
+          enabled: false
+        prometheus-remote-write:
           enabled: false
 
     # ------------------------------------------------------------------
