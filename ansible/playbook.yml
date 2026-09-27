@@ -172,7 +172,15 @@
       args:
         creates: /usr/local/bin/flux
 
-    - name: Exécuter Flux Bootstrap Github
+    - name: Vérifier si Flux est déjà démarré (bootstrap)
+      ansible.builtin.command: kubectl get namespace flux-system
+      register: flux_namespace_check
+      failed_when: false
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Exécuter Flux Bootstrap Github (uniquement au tout premier déploiement)
       ansible.builtin.command: >
         flux bootstrap github
         --owner={{ github_user }}
@@ -186,4 +194,5 @@
         KUBECONFIG: /etc/rancher/k3s/k3s.yaml
       register: flux_bootstrap
       changed_when: "'sync configuration completed' in flux_bootstrap.stdout"
+      when: flux_namespace_check.rc != 0
 
