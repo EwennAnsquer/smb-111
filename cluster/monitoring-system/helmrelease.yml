@@ -20,8 +20,8 @@ spec:
       interval: 12h
   install:
     remediation:
-      strategy: uninstall   # sur un premier install raté, il n'y a rien vers quoi "rollback" : on désinstalle et on repart propre
       retries: 3
+      remediateLastFailure: true
   upgrade:
     cleanupOnFail: true
     remediation:
