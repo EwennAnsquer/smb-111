@@ -20,12 +20,27 @@ spec:
       interval: 12h
   install:
     remediation:
+      strategy: uninstall   # sur un premier install raté, il n'y a rien vers quoi "rollback" : on désinstalle et on repart propre
       retries: 3
   upgrade:
     cleanupOnFail: true
     remediation:
       retries: 3
   values:
+    # ------------------------------------------------------------------
+    # Dashboards par défaut : on retire le paquet de dashboards qui ne
+    # concernent pas ton architecture (Windows, macOS, Prometheus natif -
+    # tu utilises VictoriaMetrics, pas Prometheus). "Controller Manager" et
+    # "Scheduler" restent inchangés (interrupteurs séparés, déjà actifs).
+    #
+    # ⚠️ Ce paquet regroupe PLUSIEURS dashboards d'un coup (pas de réglage
+    # fin par fichier dans ce chart) : vérifie après coup dans Grafana que
+    # rien d'autre d'utile n'a disparu avec.
+    defaultDashboards:
+      sources:
+        kube-prometheus:
+          enabled: false
+
     # ------------------------------------------------------------------
     # VictoriaMetrics (remplace Prometheus comme base de métriques)
     # ------------------------------------------------------------------
@@ -127,9 +142,21 @@ spec:
         userKey: admin-user
         passwordKey: admin-password
 
+      # Plugin natif VictoriaMetrics (langage MetricsQL), utilisé par la datasource
+      # "VictoriaMetrics (DS)" créée automatiquement par le chart.
+      # ⚠️ Téléchargé depuis grafana.com au démarrage du pod : Grafana doit avoir
+      # un accès internet sortant. Sans ce plugin, la datasource "VictoriaMetrics"
+      # (compatible PromQL, sans plugin) fonctionne quand même très bien seule.
       plugins:
         - victoriametrics-metrics-datasource
 
+      # Auth proxy : Grafana fait confiance aux en-têtes que Traefik lui transmet
+      # une fois qu'Authelia a validé la session (le middleware forwardauth-authelia
+      # renvoie par défaut Remote-User / Remote-Name / Remote-Email / Remote-Groups).
+      # Plus d'écran de connexion Grafana : l'utilisateur arrive déjà connecté.
+      #
+      # ⚠️ Ça ne marche QUE parce que Grafana n'est joignable qu'à travers ce
+      # middleware (pas d'accès direct au Service qui court-circuiterait Authelia).
       env:
         GF_AUTH_PROXY_ENABLED: "true"
         GF_AUTH_PROXY_HEADER_NAME: "Remote-User"
