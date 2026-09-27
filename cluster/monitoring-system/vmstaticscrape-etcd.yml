@@ -14,5 +14,3 @@ spec:
       labels:
         job: kube-etcd
       scheme: http
-      port: "2381"
-
