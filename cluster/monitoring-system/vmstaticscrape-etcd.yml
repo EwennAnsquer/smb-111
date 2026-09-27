@@ -1,0 +1,18 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: k3s-etcd
+  namespace: monitoring-system
+spec:
+  jobName: kube-etcd
+  targetEndpoints:
+    - targets:
+        - "192.168.1.205:2381"   # k3s-master-0
+        - "192.168.1.206:2381"   # k3s-master-1
+        - "192.168.1.207:2381"   # k3s-master-2
+      labels:
+        job: kube-etcd
+      scheme: http
+      port: "2381"
+

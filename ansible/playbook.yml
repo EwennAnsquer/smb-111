@@ -26,7 +26,34 @@
 - name: Déploiement des Nœuds Maîtres (Control Plane HA)
   hosts: masters
   become: yes
+  serial: 1
   tasks:
+    - name: Vérifier si K3s est déjà installé sur ce master
+      ansible.builtin.stat:
+        path: /etc/systemd/system/k3s.service
+      register: k3s_already_installed
+
+    - name: Créer le dossier de configuration K3s
+      ansible.builtin.file:
+        path: /etc/rancher/k3s
+        state: directory
+        mode: '0755'
+
+    - name: Activer l'exposition des métriques etcd
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/config.yaml
+        content: |
+          etcd-expose-metrics: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Redémarrer K3s pour appliquer les métriques etcd (nœuds déjà installés)
+      ansible.builtin.systemd:
+        name: k3s
+        state: restarted
+      when: k3s_already_installed.stat.exists
+
     - name: Initialiser le cluster K3s (Premier Master uniquement)
       ansible.builtin.shell: |
         curl -sfL https://get.k3s.io | sh -s - server --cluster-init --write-kubeconfig-mode "0644"
@@ -159,3 +186,4 @@
         KUBECONFIG: /etc/rancher/k3s/k3s.yaml
       register: flux_bootstrap
       changed_when: "'sync configuration completed' in flux_bootstrap.stdout"
+

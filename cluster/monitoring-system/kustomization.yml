@@ -8,3 +8,4 @@ resources:
   - helmrelease.yml
   - grafana-admin.yml
   - grafana-role-sync-cronjob.yml
+  - vmstaticscrape-etcd.yml
