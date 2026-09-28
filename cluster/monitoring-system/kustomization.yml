@@ -9,3 +9,5 @@ resources:
   - grafana-admin.yml
   - grafana-role-sync-cronjob.yml
   - vmscrapeconfig-etcd.yml
+  - alertmanager-secret.enc.yml
+  - alertmanager-rules.yml

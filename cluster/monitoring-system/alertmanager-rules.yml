@@ -1,0 +1,49 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: smb-111-custom-alerts
+  namespace: monitoring-system
+spec:
+  groups:
+    - name: smb-111.functional
+      rules:
+        # Seuil : 0 réplica disponible pendant plus d'1 minute.
+        - alert: DeploymentNoReplicaAvailable
+          expr: kube_deployment_status_replicas_available == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Application arrêtée : {{ $labels.namespace }}/{{ $labels.deployment }}"
+            description: "Le déploiement {{ $labels.deployment }} (namespace {{ $labels.namespace }}) n'a plus aucun pod disponible depuis plus d'1 minute."
+
+        # Seuil : plus de 3 redémarrages de conteneur en 10 minutes.
+        - alert: PodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total[10m]) > 3
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod en boucle de redémarrage : {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Le conteneur {{ $labels.container }} du pod {{ $labels.pod }} a redémarré plus de 3 fois en 10 minutes."
+
+        # Seuil : CPU d'un nœud > 80 % pendant 2 minutes.
+        - alert: NodeCPUUsageHigh
+          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CPU élevé sur {{ $labels.instance }}"
+            description: "Le nœud {{ $labels.instance }} utilise {{ $value | printf \"%.0f\" }} % de CPU depuis plus de 2 minutes (seuil : 80 %)."
+
+        # Seuil : mémoire d'un nœud > 85 % pendant 5 minutes.
+        - alert: NodeMemoryUsageHigh
+          expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Mémoire élevée sur {{ $labels.instance }}"
+            description: "Le nœud {{ $labels.instance }} utilise {{ $value | printf \"%.0f\" }} % de sa RAM depuis plus de 5 minutes (seuil : 85 %)."

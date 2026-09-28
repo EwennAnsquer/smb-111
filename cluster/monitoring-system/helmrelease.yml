@@ -98,11 +98,13 @@ spec:
               - vmalert.smb-111.azby.fr
             secretName: vmalert-tls
 
-    # Alertmanager : reste en "blackhole" par défaut (pas de notif configurée).
-    # À remplacer par un vrai receiver (mail, Slack...) quand tu en auras un.
+    # Alertmanager : sa configuration (routes + Discord + email) vient du Secret
+    # "alertmanager-config" (fichier alertmanager-secret.enc.yml). Quand configSecret
+    # est renseigné, le chart n'écrit plus lui-même de config (blackhole par défaut).
     alertmanager:
       enabled: true
       spec:
+        configSecret: alertmanager-config
         storage:
           volumeClaimTemplate:
             spec:
