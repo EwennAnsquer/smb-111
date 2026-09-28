@@ -27,6 +27,12 @@ spec:
     remediation:
       retries: 3
   values:
+    kubeScheduler:
+        enabled: false
+    defaultRules:
+      rules:
+        kubeScheduler: false
+        kubeControllerManager: false
     defaultDashboards:
       dashboards:
         k8s-resources-windows-cluster:
