@@ -39,11 +39,13 @@
         state: directory
         mode: '0755'
 
-    - name: Activer l'exposition des métriques etcd
+    - name: Configurer K3s (métriques etcd et désactivation du traefik natif)
       ansible.builtin.copy:
         dest: /etc/rancher/k3s/config.yaml
         content: |
           etcd-expose-metrics: true
+          disable:
+            - traefik
         owner: root
         group: root
         mode: '0644'
