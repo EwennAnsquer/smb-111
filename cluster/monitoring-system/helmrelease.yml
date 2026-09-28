@@ -105,6 +105,8 @@ spec:
       enabled: true
       spec:
         configSecret: alertmanager-config
+        # Adresse publique, utilisée pour le lien "View In Alertmanager" des mails/Discord.
+        externalURL: https://alertmanager.smb-111.azby.fr
         storage:
           volumeClaimTemplate:
             spec:
