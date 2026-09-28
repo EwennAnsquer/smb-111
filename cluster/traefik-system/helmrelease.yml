@@ -32,4 +32,4 @@ spec:
           namespacePolicy:
             from: All
     deployment:
-      replicas: 1
+      replicas: 2
