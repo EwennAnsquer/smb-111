@@ -1,5 +1,25 @@
 # ansible/vars/all.yml
+---
+# --- GitHub / Flux ---
 github_user: "EwennAnsquer"
 github_repo: "smb-111"
 github_branch: "main"
-target_path: "./cluster"
+target_path: "flux/clusters/prod"
+
+# Version de la CLI Flux (sans le "v"). Le bootstrap installe les
+# composants du cluster dans la même version que la CLI.
+flux_version: "2.9.5"
+
+# --- K3s ---
+# Laisser vide pour installer la dernière version stable,
+# ou épingler par exemple : "v1.33.4+k3s1"
+k3s_version: "v1.37.0+k3s1"
+
+# --- Kubeconfig local ---
+local_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
+
+# --- Secrets ---
+# github_token : dans vars/secrets.enc.yml (chiffré SOPS)
+#   github_token: "ghp_..."
+# sops_age_key : injecté automatiquement par deploy.sh depuis
+#   ~/.config/sops/age/keys.txt (rien à stocker dans le dépôt)

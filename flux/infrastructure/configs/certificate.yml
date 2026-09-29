@@ -12,3 +12,5 @@ spec:
   dnsNames:
     - "azby.fr"
     - "*.azby.fr"
+    - "*.smb-111.azby.fr"
+
