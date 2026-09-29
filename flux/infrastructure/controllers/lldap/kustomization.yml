@@ -5,4 +5,7 @@ resources:
   - bootstrap-users.enc.yml
   - bootstrap-groups.yml
   - secret.enc.yml
+  - deployment.yml
+  - service.yml
+  - pvc.yml
 

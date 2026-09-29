@@ -4,7 +4,4 @@ kind: Kustomization
 namespace: longhorn-system
 resources:
   - ingress.yml
-  - deployment.yml
-  - pvc.yml
-  - service.yml
 
