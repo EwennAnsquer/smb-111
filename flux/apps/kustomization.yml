@@ -3,6 +3,5 @@ kind: Kustomization
 resources:
   - longhorn
   - lldap
-  - authelia
   - monitoring
 
