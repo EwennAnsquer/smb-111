@@ -6,13 +6,18 @@ metadata:
   namespace: monitoring-system
 spec:
   interval: 30m
+  dependsOn:
+    - name: longhorn-release
+      namespace: longhorn-system
+    - name: authelia
+      namespace: authelia-system
   timeout: 10m
   releaseName: vm-stack
   chart:
     spec:
       chart: victoria-metrics-k8s-stack
       # Versions disponibles : helm search repo victoria-metrics/victoria-metrics-k8s-stack --versions
-      version: '0.x.x'
+      version: '0.95.0'
       sourceRef:
         kind: HelmRepository
         name: victoria-metrics
@@ -20,15 +25,15 @@ spec:
       interval: 12h
   install:
     remediation:
-      retries: 3
+      retries: -1
       remediateLastFailure: true
   upgrade:
     cleanupOnFail: true
     remediation:
-      retries: 3
+      retries: -1
   values:
     kubeScheduler:
-        enabled: false
+      enabled: false
     defaultRules:
       rules:
         kubeScheduler:
