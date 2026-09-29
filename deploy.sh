@@ -76,6 +76,21 @@ ansible-playbook -i inventory.ini playbook.yml -e @"$TMP_ANSIBLE_VARS"
 echo -e "\nMise à jour du dépôt local (fichiers gotk-* générés par Flux)..."
 git -C "$PROJECT_DIR" pull --ff-only
 
+# 5. Aplatir : sortir les fichiers gotk-* du sous-dossier flux-system/
+FLUX_PATH="$PROJECT_DIR/flux/clusters/prod" # doit correspondre à target_path dans vars/all.yml
+
+if [ -d "$FLUX_PATH/flux-system" ]; then
+  echo -e "\nAplatissement du dossier flux-system..."
+  mv -f "$FLUX_PATH"/flux-system/gotk-*.yaml "$FLUX_PATH/"
+  rm -rf "$FLUX_PATH/flux-system"
+
+  git -C "$PROJECT_DIR" add -A "$FLUX_PATH"
+  git -C "$PROJECT_DIR" commit -m "Flux: move gotk files out of flux-system folder"
+  git -C "$PROJECT_DIR" push
+
+  echo "Fichiers gotk-* déplacés et poussés."
+fi
+
 echo -e "\nDéploiement terminé. Suivi de Flux :"
 echo "  export KUBECONFIG=~/.kube/config-k3s"
 echo "  flux get kustomizations"
