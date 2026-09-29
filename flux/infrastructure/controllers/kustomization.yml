@@ -4,3 +4,8 @@ resources:
   - cert-manager
   - traefik
   - longhorn
+  - authelia
+  - lldap
+  - monitoring
+  - kube
+

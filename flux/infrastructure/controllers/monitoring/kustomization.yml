@@ -7,7 +7,5 @@ resources:
   - secret.enc.yml
   - helmrelease.yml
   - grafana-admin.yml
-  - grafana-role-sync-cronjob.yml
-  - vmscrapeconfig-etcd.yml
   - alertmanager-secret.enc.yml
-  - alertmanager-rules.yml
+

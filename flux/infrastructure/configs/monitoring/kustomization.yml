@@ -1,8 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - longhorn
-  - lldap
-  - authelia
-  - monitoring
+  - vmscrapeconfig-etcd.yml
+  - alertmanager-rules.yml
 

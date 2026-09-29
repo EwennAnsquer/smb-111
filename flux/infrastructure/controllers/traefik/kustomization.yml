@@ -6,8 +6,4 @@ resources:
   - namespace.yml
   - helmrepo.yml
   - helmrelease.yml
-  - backup-secret.enc.yml
-  - backup-target.yml
-  - backup-cronjob.yml
-  - storageclass.yml
-  - ingress.yml
+
