@@ -14,6 +14,7 @@ flux_version: "2.9.5"
 # Laisser vide pour installer la dernière version stable,
 # ou épingler par exemple : "v1.33.4+k3s1"
 k3s_version: "v1.37.0+k3s1"
+vip_ip: "192.168.1.210"
 
 # --- Kubeconfig local ---
 local_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
