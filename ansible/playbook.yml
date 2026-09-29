@@ -61,6 +61,8 @@
           etcd-expose-metrics: true
           disable:
             - traefik
+          tls-san:
+            - "192.168.1.210"
         owner: root
         group: root
         mode: '0644'
