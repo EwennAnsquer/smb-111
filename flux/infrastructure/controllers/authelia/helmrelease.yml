@@ -18,6 +18,9 @@ spec:
         name: authelia
         namespace: authelia-system
       interval: 12h
+  dependsOn:
+    - name: traefik
+      namespace: traefik-system
   install:
     # Tant que lldap n'est pas déployé, Authelia ne démarre pas (connexion LDAP au boot) :
     # Flux retentera jusqu'à ce que ça passe.
