@@ -13,6 +13,16 @@ spec:
         kind: HelmRepository
         name: cert-manager-webhook-ovh
         namespace: flux-system
+      dependsOn:
+        - name: cert-manager
+          namespace: flux-system      # le HelmRelease cert-manager est dans flux-system
+      install:
+        crds: CreateReplace
+        remediation:
+          retries: -1                 # réessaie indéfiniment au lieu de rester "stalled"
+      upgrade:
+        remediation:
+          retries: -1
   targetNamespace: cert-manager-system
   values:
     groupName: acme.azby.com
