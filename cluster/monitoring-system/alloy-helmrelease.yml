@@ -1,0 +1,106 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: alloy
+  namespace: monitoring-system
+spec:
+  interval: 30m
+  timeout: 10m
+  releaseName: alloy
+  chart:
+    spec:
+      chart: alloy
+      # Versions disponibles : helm search repo grafana/alloy --versions
+      version: '1.x.x'
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: monitoring-system
+      interval: 12h
+  install:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    alloy:
+      # Monte /var/log de chaque nœud pour lire les fichiers directement, plutôt
+      # que d'interroger l'API Kubernetes (loki.source.kubernetes) : plus léger
+      # pour les masters, qu'on a déjà vus saturer en RAM.
+      mounts:
+        varlog: true
+
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+
+      configMap:
+        content: |
+          // Découvre les pods du NŒUD COURANT uniquement (filtre côté API
+          // Kubernetes, pas après coup : moins de charge sur l'API server).
+          discovery.kubernetes "pods" {
+            role = "pod"
+            selectors {
+              role  = "pod"
+              field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
+            }
+          }
+
+          // Ajoute les labels namespace/pod/container et construit le chemin
+          // du fichier de log correspondant sur le disque du nœud.
+          discovery.relabel "pod_logs" {
+            targets = discovery.kubernetes.pods.targets
+
+            rule {
+              source_labels = ["__meta_kubernetes_namespace"]
+              target_label  = "namespace"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_name"]
+              target_label  = "pod"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_container_name"]
+              target_label  = "container"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+              separator     = "/"
+              target_label  = "__path__"
+              replacement   = "/var/log/pods/*$1/*.log"
+            }
+          }
+
+          // Résout le chemin en fichiers réels présents sur le disque.
+          local.file_match "pod_logs" {
+            path_targets = discovery.relabel.pod_logs.output
+          }
+
+          // Lit les fichiers et les transmet à Loki.
+          loki.source.file "pod_logs" {
+            targets    = local.file_match.pod_logs.targets
+            forward_to = [loki.write.default.receiver]
+          }
+
+          loki.write "default" {
+            endpoint {
+              url = "http://loki.monitoring-system.svc.cluster.local:3100/loki/api/v1/push"
+            }
+          }
+
+    controller:
+      type: daemonset
+      # Tolère un futur taint control-plane (voir la discussion sur les masters
+      # surchargés) : on veut collecter les logs partout, masters compris.
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+

@@ -1,0 +1,97 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: monitoring-system
+spec:
+  interval: 30m
+  timeout: 10m
+  releaseName: loki
+  chart:
+    spec:
+      chart: loki
+      # Versions disponibles : helm search repo grafana-community/loki --versions
+      version: '18.x.x'
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-community
+        namespace: monitoring-system
+      interval: 12h
+  install:
+    remediation:
+      retries: 3
+      remediateLastFailure: true
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # Mode "Monolithic" : un seul binaire, un seul pod. Adapté à un petit cluster
+    # (le mode par défaut du chart, "SimpleScalable", vise plusieurs To/jour avec
+    # du stockage S3 et 3 réplicas par composant — hors sujet ici).
+    deploymentMode: Monolithic
+
+    loki:
+      auth_enabled: false   # pas de multi-tenant : un seul client (Alloy) sur ce cluster
+
+      commonConfig:
+        replication_factor: 1   # un seul pod : pas de réplication possible
+
+      storage:
+        type: filesystem   # stockage sur disque local (le PVC Longhorn ci-dessous),
+                            # pas de S3/GCS/Azure à faire tourner en plus
+
+      # Schéma d'indexation : TSDB est le format recommandé actuellement.
+      schemaConfig:
+        configs:
+          - from: "2024-01-01"
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: loki_index_
+              period: 24h
+
+      limits_config:
+        retention_period: 168h   # 7 jours d'historique de logs, à ajuster selon l'espace disque
+
+      compactor:
+        retention_enabled: true
+        delete_request_store: filesystem   # requis par Loki dès que retention_enabled est actif
+
+    singleBinary:
+      replicas: 1
+      persistence:
+        enabled: true
+        storageClass: longhorn
+        size: 10Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 1Gi   # protège les nœuds d'un emballement, comme pour VictoriaMetrics
+
+    # Composants du mode "SimpleScalable" (l'autre mode du chart) : à zéro,
+    # on ne les utilise pas en mode Monolithic.
+    backend:
+      replicas: 0
+    read:
+      replicas: 0
+    write:
+      replicas: 0
+
+    # Composants annexes désactivés : inutiles pour un seul pod, et ça évite de
+    # faire tourner 3 pods memcached (chunksCache + resultsCache) juste pour du cache.
+    gateway:
+      enabled: false
+    chunksCache:
+      enabled: false
+    resultsCache:
+      enabled: false
+    lokiCanary:
+      enabled: false   # petit outil de test de bout en bout, pas nécessaire pour un projet
+    test:
+      enabled: false
+

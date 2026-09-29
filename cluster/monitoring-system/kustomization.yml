@@ -11,3 +11,9 @@ resources:
   - vmscrapeconfig-etcd.yml
   - alertmanager-secret.enc.yml
   - alertmanager-rules.yml
+  - loki-helmrepo.yml
+  - alloy-helmrepo.yml
+  - loki-helmrelease.yml
+  - alloy-helmrelease.yml
+  - grafana-loki-datasource.yml
+
