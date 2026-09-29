@@ -7,7 +7,7 @@ metadata:
 spec:
   interval: 10m
   retryInterval: 1m
-  path: ./infrastructure/controllers
+  path: .flux/infrastructure/controllers
   prune: true
   wait: true
   timeout: 10m
@@ -27,7 +27,7 @@ metadata:
 spec:
   interval: 10m
   retryInterval: 1m
-  path: ./infrastructure/configs
+  path: .flux/infrastructure/configs
   prune: true
   sourceRef:
     kind: GitRepository
