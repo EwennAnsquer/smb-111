@@ -4,6 +4,7 @@ resources:
   - namespace.yml
   - bootstrap-users.enc.yml
   - bootstrap-groups.yml
+  - bootstrap-cronjob.yml
   - secret.enc.yml
   - deployment.yml
   - service.yml
