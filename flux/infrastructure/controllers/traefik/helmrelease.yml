@@ -26,13 +26,12 @@ spec:
     providers:
       kubernetesGateway:
         enabled: true
+      kubernetesCRD:
+        allowCrossNamespace: true
     gateway:
       listeners:
         web:
           namespacePolicy:
             from: All
-    providers:
-      kubernetesCRD:
-        allowCrossNamespace: true
     deployment:
       replicas: 2
