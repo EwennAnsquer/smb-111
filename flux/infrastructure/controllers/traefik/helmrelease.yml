@@ -31,5 +31,8 @@ spec:
         web:
           namespacePolicy:
             from: All
+    providers:
+      kubernetesCRD:
+        allowCrossNamespace: true
     deployment:
       replicas: 2
