@@ -31,8 +31,10 @@ spec:
         enabled: false
     defaultRules:
       rules:
-        kubeScheduler: false
-        kubeControllerManager: false
+        kubeScheduler:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
     defaultDashboards:
       dashboards:
         k8s-resources-windows-cluster:
