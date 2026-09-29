@@ -7,9 +7,6 @@ metadata:
   labels:
     app.kubernetes.io/name: lldap
 spec:
-  dependsOn:
-    - name: longhorn
-      namespace: longhorn-system
   replicas: 1                 # SQLite => 1 seul réplica
   strategy:
     type: Recreate            # évite deux pods sur le même PVC (ReadWriteOnce)
