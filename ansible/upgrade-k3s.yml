@@ -1,0 +1,64 @@
+---
+- name: Sauvegarde etcd avant mise à jour
+  hosts: masters[0]
+  become: yes
+  tasks:
+    - name: Snapshot etcd
+      ansible.builtin.command: k3s etcd-snapshot save --name pre-upgrade-{{ k3s_version }}
+
+- name: Mise à jour des masters (un par un)
+  hosts: masters
+  become: yes
+  serial: 1
+  tasks:
+    - name: Version actuelle
+      ansible.builtin.command: k3s --version
+      register: k3s_current
+      changed_when: false
+
+    - name: Mise à jour de K3s
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server --write-kubeconfig-mode "0644"
+      when: k3s_version not in k3s_current.stdout
+
+    - name: Attendre que le nœud soit Ready
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} wait
+        --for=condition=Ready node/{{ inventory_hostname }} --timeout=300s
+      delegate_to: localhost
+      become: no
+      register: r
+      until: r.rc == 0
+      retries: 10
+      delay: 15
+
+- name: Mise à jour des workers (un par un)
+  hosts: workers
+  become: yes
+  serial: 1
+  tasks:
+    - name: Version actuelle
+      ansible.builtin.command: k3s --version
+      register: k3s_current
+      changed_when: false
+
+    - name: Drain
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} drain {{ inventory_hostname }}
+        --ignore-daemonsets --delete-emptydir-data --timeout=300s
+      delegate_to: localhost
+      become: no
+      when: k3s_version not in k3s_current.stdout
+
+    - name: Mise à jour de l'agent
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - agent
+      when: k3s_version not in k3s_current.stdout
+
+    - name: Attendre que le nœud soit Ready puis uncordon
+      ansible.builtin.shell: |
+        kubectl --kubeconfig {{ local_kubeconfig }} wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=300s &&
+        kubectl --kubeconfig {{ local_kubeconfig }} uncordon {{ inventory_hostname }}
+      delegate_to: localhost
+      become: no
+

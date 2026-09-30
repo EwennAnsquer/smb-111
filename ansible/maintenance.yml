@@ -1,0 +1,62 @@
+---
+- name: Mises à jour OS en rolling (un nœud à la fois)
+  hosts: masters:workers
+  become: yes
+  serial: 1
+  tasks:
+    - name: Mettre à jour les paquets
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+
+    - name: Un nouveau noyau est-il installé ?
+      ansible.builtin.shell: |
+        latest=$(ls -1 /boot/vmlinuz-* | sed 's|/boot/vmlinuz-||' | sort -V | tail -1)
+        [ "$latest" != "$(uname -r)" ] && echo yes || echo no
+      register: reboot_needed
+      changed_when: false
+
+    - name: Redémarrage propre du nœud
+      when: reboot_needed.stdout == 'yes'
+      block:
+        - name: Drain du nœud
+          ansible.builtin.command: >
+            kubectl --kubeconfig {{ local_kubeconfig }} drain {{ inventory_hostname }}
+            --ignore-daemonsets --delete-emptydir-data --timeout=300s
+          delegate_to: localhost
+          become: no
+
+        - name: Redémarrage
+          ansible.builtin.reboot:
+            reboot_timeout: 600
+
+        - name: Attendre que le nœud soit Ready
+          ansible.builtin.command: >
+            kubectl --kubeconfig {{ local_kubeconfig }} wait
+            --for=condition=Ready node/{{ inventory_hostname }} --timeout=300s
+          delegate_to: localhost
+          become: no
+          register: node_ready
+          until: node_ready.rc == 0
+          retries: 10
+          delay: 15
+
+        - name: Remettre le nœud en service
+          ansible.builtin.command: >
+            kubectl --kubeconfig {{ local_kubeconfig }} uncordon {{ inventory_hostname }}
+          delegate_to: localhost
+          become: no
+
+        - name: Attendre que les volumes Longhorn ne soient plus dégradés
+          ansible.builtin.command: >
+            kubectl --kubeconfig {{ local_kubeconfig }} -n longhorn-system
+            get volumes.longhorn.io -o jsonpath='{.items[*].status.robustness}'
+          delegate_to: localhost
+          become: no
+          register: lh
+          until: "'degraded' not in lh.stdout and 'faulted' not in lh.stdout"
+          retries: 40
+          delay: 15
+          changed_when: false
+
