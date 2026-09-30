@@ -10,6 +10,7 @@ crash.log
 ansible/inventory.ini
 *.vault_pass
 *.retry
+secrets.yml
 
 # --- Clés SSH & Sécurité ---
 *.pem
