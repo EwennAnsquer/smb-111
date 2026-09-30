@@ -37,6 +37,24 @@
       changed_when: false
       no_log: true
 
+    - name: Générer les secrets OIDC d'Authelia (une seule fois)
+      ansible.builtin.shell: |
+        set -e
+        kubectl create namespace authelia-system --dry-run=client -o yaml | kubectl apply -f -
+        if kubectl -n authelia-system get secret authelia-oidc >/dev/null 2>&1; then
+          exit 0
+        fi
+        tmp=$(mktemp -d)
+        trap 'rm -rf "$tmp"' EXIT
+        openssl genrsa -out "$tmp/oidc.jwks.rsa.4096.pem" 4096
+        kubectl -n authelia-system create secret generic authelia-oidc \
+          --from-file=oidc.jwks.rsa.4096.pem="$tmp/oidc.jwks.rsa.4096.pem" \
+          --from-literal=identity_providers.oidc.hmac.key="$(openssl rand -hex 32)"
+      args:
+        executable: /bin/bash
+      register: authelia_oidc
+      changed_when: "'secret/authelia-oidc created' in authelia_oidc.stdout"
+
     - name: Exécuter Flux Bootstrap Github (uniquement au tout premier déploiement)
       ansible.builtin.command: >
         flux bootstrap github
