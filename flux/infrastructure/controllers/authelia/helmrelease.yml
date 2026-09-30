@@ -79,6 +79,33 @@ spec:
       theme: auto
       log:
         level: info
+      identity_providers:
+        oidc:
+          enabled: true
+          hmac_secret:
+            secret_name: authelia-oidc
+            path: identity_providers.oidc.hmac.key
+          jwks:
+            - key_id: 'kubernetes-sig'
+              use: 'sig'
+              algorithm: 'RS256'
+              key:
+                path: '/secrets/authelia-oidc/oidc.jwks.rsa.4096.pem'
+          clients:
+            - client_id: 'kubernetes'
+              client_name: 'Kubernetes Cluster Access'
+              public: true
+              require_pkce: true
+              pkce_challenge_method: 'S256'
+              authorization_policy: 'one_factor'
+              redirect_uris:
+                - 'http://localhost:8000'
+                - 'http://localhost:18000'
+              scopes:
+                - 'openid'
+                - 'profile'
+                - 'email'
+                - 'groups'
 
       server:
         endpoints:
