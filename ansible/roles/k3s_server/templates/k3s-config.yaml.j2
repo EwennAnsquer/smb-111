@@ -1,0 +1,7 @@
+etcd-expose-metrics: {{ k3s_server_etcd_expose_metrics | lower }}
+disable:
+{% for component in k3s_server_disabled_components %}
+  - {{ component }}
+{% endfor %}
+tls-san:
+  - "{{ vip_ip }}"

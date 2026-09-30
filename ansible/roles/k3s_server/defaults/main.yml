@@ -1,0 +1,4 @@
+---
+k3s_server_disabled_components:
+  - traefik
+k3s_server_etcd_expose_metrics: true

@@ -1,0 +1,27 @@
+---
+- name: Mettre à jour les paquets
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+
+- name: Installation des paquets
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Activer iscsid (requis par Longhorn)
+  ansible.builtin.systemd:
+    name: iscsid
+    state: started
+    enabled: yes
+
+- name: Désactiver le swap (immédiat)
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+
+- name: Désactiver le swap (persistant, /etc/fstab)
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+

@@ -1,0 +1,4 @@
+---
+flux_bootstrap_kubeconfig: /etc/rancher/k3s/k3s.yaml
+flux_bootstrap_namespace: flux-system
+flux_bootstrap_install_url: https://fluxcd.io/install.sh

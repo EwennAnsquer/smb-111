@@ -2,369 +2,46 @@
 - name: Préparation de toutes les machines
   hosts: k3s_cluster
   become: yes
-  tasks:
-    - name: Mettre à jour les paquets
-      ansible.builtin.apt:
-        update_cache: yes
-        upgrade: dist
+  roles:
+    - role: common
+      tags: [common]
 
-    - name: Installation des paquets
-      ansible.builtin.apt:
-        name:
-          - curl
-          - ca-certificates
-          - open-iscsi
-          - nfs-common
-          - util-linux
-          - grep
-          - gawk
-        state: present
-
-    - name: Activer iscsid (requis par Longhorn)
-      ansible.builtin.systemd:
-        name: iscsid
-        state: started
-        enabled: yes
-
-    - name: Désactiver le swap (immédiat)
-      ansible.builtin.command: swapoff -a
-      changed_when: false
-
-    - name: Désactiver le swap (persistant, /etc/fstab)
-      ansible.builtin.replace:
-        path: /etc/fstab
-        regexp: '^([^#].*\sswap\s.*)$'
-        replace: '# \1'
-
-- name: Déploiement des Nœuds Maîtres (Control Plane HA)
+- name: Nœuds maîtres (control plane HA)
   hosts: masters
   become: yes
   serial: 1
-  vars_files:
-    - vars/all.yml
-  tasks:
-    - name: Vérifier si K3s est déjà installé sur ce master
-      ansible.builtin.stat:
-        path: /etc/systemd/system/k3s.service
-      register: k3s_already_installed
+  roles:
+    - role: k3s_server
+      tags: [k3s_server]
+    - role: kube_vip
+      tags: [kube_vip]
 
-    - name: Créer le dossier de configuration K3s
-      ansible.builtin.file:
-        path: /etc/rancher/k3s
-        state: directory
-        mode: '0755'
-
-    - name: Configurer K3s (métriques etcd et désactivation du traefik natif)
-      ansible.builtin.copy:
-        dest: /etc/rancher/k3s/config.yaml
-        content: |
-          etcd-expose-metrics: true
-          disable:
-            - traefik
-          tls-san:
-            - "{{ vip_ip }}"
-        owner: root
-        group: root
-        mode: '0644'
-      register: k3s_config
-
-    - name: Redémarrer K3s pour appliquer la configuration (nœuds déjà installés)
-      ansible.builtin.systemd:
-        name: k3s
-        state: restarted
-      when: k3s_already_installed.stat.exists and k3s_config.changed
-
-    - name: Initialiser le cluster K3s (Premier Master uniquement)
-      ansible.builtin.shell: |
-        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server --cluster-init --write-kubeconfig-mode "0644"
-      args:
-        creates: /etc/systemd/system/k3s.service
-      when: inventory_hostname == groups['masters'][0]
-
-    - name: Attendre que le fichier token soit généré par le premier master
-      ansible.builtin.wait_for:
-        path: /var/lib/rancher/k3s/server/node-token
-        state: present
-      when: inventory_hostname == groups['masters'][0]
-
-    - name: Récupérer le jeton (Token) d'enregistrement K3s
-      ansible.builtin.slurp:
-        src: /var/lib/rancher/k3s/server/node-token
-      register: k3s_token
-      when: inventory_hostname == groups['masters'][0]
-      no_log: true
-
-    - name: Créer le dossier des manifests K3s
-      ansible.builtin.file:
-        path: /var/lib/rancher/k3s/server/manifests
-        state: directory
-        mode: '0755'
-
-    - name: Déployer le manifest Kube-VIP
-      ansible.builtin.copy:
-        dest: /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
-        content: |
-          apiVersion: v1
-          kind: ServiceAccount
-          metadata:
-            name: kube-vip
-            namespace: kube-system
-          ---
-          apiVersion: rbac.authorization.k8s.io/v1
-          kind: ClusterRole
-          metadata:
-            name: system:kube-vip-role
-          rules:
-            - apiGroups: [""]
-              resources: ["services/status"]
-              verbs: ["update"]
-            - apiGroups: [""]
-              resources: ["services", "endpoints"]
-              verbs: ["list", "get", "watch", "update"]
-            - apiGroups: [""]
-              resources: ["nodes"]
-              verbs: ["list", "get", "watch", "update", "patch"]
-            - apiGroups: ["coordination.k8s.io"]
-              resources: ["leases"]
-              verbs: ["list", "get", "watch", "update", "create"]
-            - apiGroups: ["discovery.k8s.io"]
-              resources: ["endpointslices"]
-              verbs: ["list", "get", "watch", "update"]
-          ---
-          apiVersion: rbac.authorization.k8s.io/v1
-          kind: ClusterRoleBinding
-          metadata:
-            name: system:kube-vip-binding
-          roleRef:
-            apiGroup: rbac.authorization.k8s.io
-            kind: ClusterRole
-            name: system:kube-vip-role
-          subjects:
-            - kind: ServiceAccount
-              name: kube-vip
-              namespace: kube-system
-          ---
-          apiVersion: apps/v1
-          kind: DaemonSet
-          metadata:
-            name: kube-vip
-            namespace: kube-system
-            labels:
-              app.kubernetes.io/name: kube-vip
-          spec:
-            selector:
-              matchLabels:
-                app.kubernetes.io/name: kube-vip
-            template:
-              metadata:
-                labels:
-                  app.kubernetes.io/name: kube-vip
-              spec:
-                serviceAccountName: kube-vip
-                hostNetwork: true
-                nodeSelector:
-                  node-role.kubernetes.io/control-plane: "true"
-                tolerations:
-                  - operator: Exists
-                    effect: NoSchedule
-                  - operator: Exists
-                    effect: NoExecute
-                containers:
-                  - name: kube-vip
-                    image: ghcr.io/kube-vip/kube-vip:v0.8.9
-                    imagePullPolicy: IfNotPresent
-                    args: ["manager"]
-                    securityContext:
-                      capabilities:
-                        add: ["NET_ADMIN", "NET_RAW"]
-                    env:
-                      - name: KUBERNETES_SERVICE_HOST
-                        value: "127.0.0.1"
-                      - name: KUBERNETES_SERVICE_PORT
-                        value: "6443"
-                      - name: vip_arp
-                        value: "true"
-                      - name: port
-                        value: "6443"
-                      - name: vip_interface
-                        value: "{{ vip_interface }}"
-                      - name: vip_cidr
-                        value: "32"
-                      - name: cp_enable
-                        value: "true"
-                      - name: cp_namespace
-                        value: "kube-system"
-                      - name: vip_leaderelection
-                        value: "true"
-                      - name: vip_leasename
-                        value: "plndr-cp-lock"
-                      - name: svc_enable
-                        value: "false"
-                      - name: vip_address
-                        value: "{{ vip_ip }}"
-        owner: root
-        group: root
-        mode: '0644'
-
-    - name: "Attendre que la VIP ({{ vip_ip }}) soit joignable sur le port 6443"
-      ansible.builtin.wait_for:
-        host: "{{ vip_ip }}"
-        port: 6443
-        delay: 5
-        timeout: 180
-      when: inventory_hostname == groups['masters'][0]
-
-    - name: Joindre les autres Masters au cluster (Serveurs supplémentaires)
-      ansible.builtin.shell: |
-        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" sh -s - server --server "https://{{ vip_ip }}:6443" --write-kubeconfig-mode "0644"
-      args:
-        creates: /etc/systemd/system/k3s.service
-      when: inventory_hostname != groups['masters'][0]
-      no_log: true
-
-- name: Déploiement des Nœuds Workers
+- name: Nœuds workers
   hosts: workers
   become: yes
-  vars_files:
-    - vars/all.yml
-  tasks:
-    - name: Installer K3s Worker et joindre le cluster
-      ansible.builtin.shell: |
-        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_URL="https://{{ vip_ip }}:6443" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" INSTALL_K3S_EXEC="agent --node-label role=worker" sh -
-      args:
-        creates: /etc/systemd/system/k3s-agent.service
-      no_log: true
+  roles:
+    - role: k3s_agent
+      tags: [k3s_agent]
 
-- name: Configuration post-installation sur le Master
+- name: Post-installation et récupération du kubeconfig
   hosts: masters[0]
   become: yes
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  tasks:
-    - name: Attendre que le serveur API Kubernetes soit prêt
-      ansible.builtin.command: kubectl get nodes
-      register: api_check
-      until: api_check.rc == 0
-      retries: 15
-      delay: 5
-      changed_when: false
+  roles:
+    - role: k3s_postinstall
+      tags: [k3s_postinstall]
 
-    - name: Attendre que tous les nœuds workers soient visibles
-      ansible.builtin.command: kubectl get node {{ item }}
-      register: node_check
-      until: node_check.rc == 0
-      retries: 20
-      delay: 5
-      changed_when: false
-      loop: "{{ groups['workers'] }}"
-      when: groups['workers'] is defined and groups['workers'] | length > 0
-
-    - name: Affecter le rôle worker aux nœuds
-      ansible.builtin.command: >
-        kubectl label node {{ item }} node-role.kubernetes.io/worker=worker --overwrite
-      loop: "{{ groups['workers'] }}"
-      when: groups['workers'] is defined and groups['workers'] | length > 0
-
-- name: Récupération du Kubeconfig depuis le Master
-  hosts: masters[0]
-  become: yes
-  vars_files:
-    - vars/all.yml
-  tasks:
-    - name: Télécharger k3s.yaml vers la machine locale
-      ansible.builtin.fetch:
-        src: /etc/rancher/k3s/k3s.yaml
-        dest: "{{ local_kubeconfig }}"
-        flat: yes
-
-- name: Configuration locale et installation de k9s
+- name: Configuration locale
   hosts: localhost
   connection: local
   become: no
-  vars_files:
-    - vars/all.yml
-  tasks:
-    - name: Adapter l'IP du master dans le kubeconfig local
-      ansible.builtin.replace:
-        path: "{{ local_kubeconfig }}"
-        regexp: 'https://127\.0\.0\.1:6443'
-        replace: "https://{{ vip_ip }}:6443"
+  roles:
+    - role: kubeconfig_local
+      tags: [kubeconfig_local]
 
-    - name: Ajuster les permissions du fichier kubeconfig
-      ansible.builtin.file:
-        path: "{{ local_kubeconfig }}"
-        mode: '0600'
-
-    - name: Vérifier la présence de k9s sur la machine locale
-      ansible.builtin.command: which k9s
-      register: k9s_check
-      ignore_errors: yes
-      changed_when: false
-
-    - name: Installer k9s en local si nécessaire
-      ansible.builtin.unarchive:
-        src: https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz
-        dest: /usr/local/bin/
-        remote_src: yes
-        extra_opts:
-          - --include=k9s
-        creates: /usr/local/bin/k9s
-      become: yes
-      when: k9s_check.rc != 0
-
-- name: Déploiement et Bootstrap de FluxCD
+- name: FluxCD
   hosts: masters[0]
   become: yes
-  vars_files:
-    - vars/all.yml
-  environment:
-    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-  tasks:
-    - name: Vérifier la version de la CLI Flux installée
-      ansible.builtin.command: flux version --client
-      register: flux_cli_check
-      failed_when: false
-      changed_when: false
-
-    - name: Télécharger et installer la CLI Flux {{ flux_version }}
-      ansible.builtin.shell: |
-        curl -s https://fluxcd.io/install.sh | FLUX_VERSION={{ flux_version }} bash
-      when: flux_cli_check.rc != 0 or (flux_version not in flux_cli_check.stdout)
-
-    - name: Vérifier si Flux est déjà installé sur le cluster
-      ansible.builtin.command: kubectl -n flux-system get deploy source-controller
-      register: flux_installed_check
-      failed_when: false
-      changed_when: false
-
-    - name: Créer le namespace flux-system
-      ansible.builtin.shell: |
-        kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
-      changed_when: false
-
-    - name: Créer le secret sops-age (déchiffrement SOPS par Flux)
-      ansible.builtin.shell: |
-        kubectl -n flux-system create secret generic sops-age \
-          --from-literal=age.agekey="$AGE_KEY" \
-          --dry-run=client -o yaml | kubectl apply -f -
-      environment:
-        AGE_KEY: "{{ sops_age_key }}"
-      changed_when: false
-      no_log: true
-
-    - name: Exécuter Flux Bootstrap Github (uniquement au tout premier déploiement)
-      ansible.builtin.command: >
-        flux bootstrap github
-        --owner={{ github_user }}
-        --repository={{ github_repo }}
-        --branch={{ github_branch }}
-        --path={{ target_path }}
-        --personal
-        --reconcile
-      environment:
-        GITHUB_TOKEN: "{{ github_token }}"
-      register: flux_bootstrap
-      changed_when: true
-      when: flux_installed_check.rc != 0
-      no_log: true
+  roles:
+    - role: flux_bootstrap
+      tags: [flux]
 

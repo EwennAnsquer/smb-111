@@ -1,0 +1,55 @@
+---
+- name: Vérifier si K3s est déjà installé sur ce master
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s.service
+  register: k3s_already_installed
+
+- name: Créer le dossier de configuration K3s
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: '0755'
+
+- name: Configurer K3s (métriques etcd, désactivation du traefik natif)
+  ansible.builtin.template:
+    src: k3s-config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  register: k3s_config
+
+- name: Redémarrer K3s pour appliquer la configuration (nœuds déjà installés)
+  ansible.builtin.systemd:
+    name: k3s
+    state: restarted
+  when: k3s_already_installed.stat.exists and k3s_config.changed
+
+- name: Initialiser le cluster K3s (premier master uniquement)
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server --cluster-init --write-kubeconfig-mode "0644"
+  args:
+    creates: /etc/systemd/system/k3s.service
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Attendre que le fichier token soit généré par le premier master
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+    state: present
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Récupérer le jeton d'enregistrement K3s
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token
+  when: inventory_hostname == groups['masters'][0]
+  no_log: true
+
+- name: Joindre les autres masters au cluster
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" sh -s - server --server "https://{{ vip_ip }}:6443" --write-kubeconfig-mode "0644"
+  args:
+    creates: /etc/systemd/system/k3s.service
+  when: inventory_hostname != groups['masters'][0]
+  no_log: true
+

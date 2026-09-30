@@ -1,0 +1,55 @@
+---
+- name: Vérifier la version de la CLI Flux installée
+  ansible.builtin.command: flux version --client
+  register: flux_cli_check
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: "Télécharger et installer la CLI Flux {{ flux_version }}"
+  ansible.builtin.shell: |
+    curl -s {{ flux_bootstrap_install_url }} | FLUX_VERSION={{ flux_version }} bash
+  when: flux_cli_check.rc != 0 or (flux_version not in flux_cli_check.stdout)
+
+- name: Déploiement de Flux sur le cluster
+  environment:
+    KUBECONFIG: "{{ flux_bootstrap_kubeconfig }}"
+  block:
+    - name: Vérifier si Flux est déjà installé sur le cluster
+      ansible.builtin.command: kubectl -n {{ flux_bootstrap_namespace }} get deploy source-controller
+      register: flux_installed_check
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: "Créer le namespace {{ flux_bootstrap_namespace }}"
+      ansible.builtin.shell: |
+        kubectl create namespace {{ flux_bootstrap_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: false
+
+    - name: Créer le secret sops-age (déchiffrement SOPS par Flux)
+      ansible.builtin.shell: |
+        kubectl -n {{ flux_bootstrap_namespace }} create secret generic sops-age \
+          --from-literal=age.agekey="$AGE_KEY" \
+          --dry-run=client -o yaml | kubectl apply -f -
+      environment:
+        AGE_KEY: "{{ sops_age_key }}"
+      changed_when: false
+      no_log: true
+
+    - name: Exécuter Flux Bootstrap Github (uniquement au tout premier déploiement)
+      ansible.builtin.command: >
+        flux bootstrap github
+        --owner={{ github_user }}
+        --repository={{ github_repo }}
+        --branch={{ github_branch }}
+        --path={{ target_path }}
+        --personal
+        --reconcile
+      environment:
+        GITHUB_TOKEN: "{{ github_token }}"
+      register: flux_bootstrap
+      changed_when: true
+      when: flux_installed_check.rc != 0
+      no_log: true
+

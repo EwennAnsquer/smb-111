@@ -1,0 +1,10 @@
+---
+common_packages:
+  - curl
+  - ca-certificates
+  - open-iscsi
+  - nfs-common
+  - util-linux
+  - grep
+  - gawk
+

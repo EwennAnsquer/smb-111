@@ -1,0 +1,34 @@
+---
+- name: Configuration du cluster (API, nœuds workers, labels)
+  environment:
+    KUBECONFIG: "{{ k3s_postinstall_kubeconfig }}"
+  block:
+    - name: Attendre que le serveur API Kubernetes soit prêt
+      ansible.builtin.command: kubectl get nodes
+      register: api_check
+      until: api_check.rc == 0
+      retries: "{{ k3s_postinstall_api_retries }}"
+      delay: "{{ k3s_postinstall_api_delay }}"
+      changed_when: false
+
+    - name: Attendre que tous les nœuds workers soient visibles
+      ansible.builtin.command: kubectl get node {{ item }}
+      register: node_check
+      until: node_check.rc == 0
+      retries: "{{ k3s_postinstall_nodes_retries }}"
+      delay: "{{ k3s_postinstall_nodes_delay }}"
+      changed_when: false
+      loop: "{{ groups['workers'] }}"
+      when: groups['workers'] is defined and groups['workers'] | length > 0
+
+    - name: Affecter le rôle worker aux nœuds
+      ansible.builtin.command: >
+        kubectl label node {{ item }} node-role.kubernetes.io/worker=worker --overwrite
+      loop: "{{ groups['workers'] }}"
+      when: groups['workers'] is defined and groups['workers'] | length > 0
+
+- name: Télécharger k3s.yaml vers la machine locale
+  ansible.builtin.fetch:
+    src: "{{ k3s_postinstall_kubeconfig }}"
+    dest: "{{ local_kubeconfig }}"
+    flat: yes

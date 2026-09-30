@@ -1,0 +1,6 @@
+---
+k3s_postinstall_kubeconfig: /etc/rancher/k3s/k3s.yaml
+k3s_postinstall_api_retries: 15
+k3s_postinstall_api_delay: 5
+k3s_postinstall_nodes_retries: 20
+k3s_postinstall_nodes_delay: 5

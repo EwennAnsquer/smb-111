@@ -61,7 +61,7 @@ done
 
 # 3. Lancement d'Ansible
 echo -e "\nPréparation des variables Ansible (secrets SOPS + clé age pour Flux)..."
-sops -d vars/secrets.enc.yml >"$TMP_ANSIBLE_VARS"
+sops -d group_vars/secrets.enc.yml >"$TMP_ANSIBLE_VARS"
 
 # Injection de la clé age dans les variables (variable sops_age_key du playbook)
 {

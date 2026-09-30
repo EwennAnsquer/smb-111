@@ -1,0 +1,7 @@
+---
+- name: Installer K3s Worker et joindre le cluster
+  ansible.builtin.shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_URL="https://{{ vip_ip }}:6443" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" INSTALL_K3S_EXEC="agent --node-label {{ k3s_agent_node_label }}" sh -
+  args:
+    creates: /etc/systemd/system/k3s-agent.service
+  no_log: true

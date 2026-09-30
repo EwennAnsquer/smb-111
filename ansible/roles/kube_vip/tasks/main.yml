@@ -1,0 +1,22 @@
+---
+- name: Créer le dossier des manifests K3s
+  ansible.builtin.file:
+    path: "{{ kube_vip_manifest_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Déployer le manifest Kube-VIP
+  ansible.builtin.template:
+    src: kube-vip.yaml.j2
+    dest: "{{ kube_vip_manifest_dir }}/kube-vip.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Attendre que la VIP ({{ vip_ip }}) soit joignable sur le port 6443"
+  ansible.builtin.wait_for:
+    host: "{{ vip_ip }}"
+    port: 6443
+    delay: 5
+    timeout: "{{ kube_vip_wait_timeout }}"
+  when: inventory_hostname == groups['masters'][0]

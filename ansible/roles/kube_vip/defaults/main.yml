@@ -1,0 +1,4 @@
+---
+kube_vip_version: v0.8.9
+kube_vip_manifest_dir: /var/lib/rancher/k3s/server/manifests
+kube_vip_wait_timeout: 180
