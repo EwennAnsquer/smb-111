@@ -12,5 +12,5 @@ resources:
   - loki-helmrepo.yml
   - loki-helmrelease.yml
   - alloy-helmrepo.yml
-  - alloy.helmrelease.yml
+  - alloy-helmrelease.yml
 
