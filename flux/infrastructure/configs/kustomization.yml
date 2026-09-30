@@ -6,4 +6,5 @@ resources:
   - longhorn
   - traefik
   - tailscale
+  - rbac
 
