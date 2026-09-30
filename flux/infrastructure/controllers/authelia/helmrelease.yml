@@ -55,6 +55,8 @@ spec:
     # le chart en générer, pour que les clés soient stables et gérées via GitOps.
     secret:
       existingSecret: authelia-secrets
+      additionalSecrets:
+        authelia-oidc: {}
 
     # ------------------------------------------------------------------
     # Traefik (k3s) : Ingress standard, comme tes autres apps (ex. longhorn)
