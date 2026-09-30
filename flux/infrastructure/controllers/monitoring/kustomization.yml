@@ -8,4 +8,9 @@ resources:
   - helmrelease.yml
   - grafana-admin.yml
   - alertmanager-secret.enc.yml
+  - grafana-loki-datasource.yml
+  - loki-helmrepo.yml
+  - loki-helmrelease.yml
+  - alloy-helmrepo.yml
+  - alloy.helmrelease.yml
 
