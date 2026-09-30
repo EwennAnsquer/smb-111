@@ -20,6 +20,8 @@ id_ed25519*
 
 # --- Kubernetes & Kubeconfig ---
 kubeconfig*
+!ansible/roles/kubeconfig_local/
+!ansible/roles/kubeconfig_local/**
 config-k3s
 *secret.yml
 *credentials.yml
@@ -31,7 +33,7 @@ config-k3s
 *.swp
 *.log
 ansible/vars/secrets.yml
-
+ansible/group_vars/secrets.yml
 # --- AGE ---
 age.agekey
 

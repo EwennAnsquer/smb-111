@@ -5,3 +5,10 @@ disable:
 {% endfor %}
 tls-san:
   - "{{ vip_ip }}"
+kube-apiserver-arg:
+  - "oidc-issuer-url=https://auth.smb-111.azby.fr"
+  - "oidc-client-id=kubernetes"
+  - "oidc-username-claim=preferred_username"
+  - "oidc-username-prefix=oidc:"
+  - "oidc-groups-claim=groups"
+  - "oidc-groups-prefix=oidc:"

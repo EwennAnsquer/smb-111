@@ -1,0 +1,8 @@
+---
+kubeconfig_local_k9s_url: https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz
+kubeconfig_local_k9s_dest: /usr/local/bin
+kubeconfig_local_kubelogin_url: https://github.com/int128/kubelogin/releases/latest/download/kubelogin_linux_amd64.zip
+kubeconfig_local_oidc_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s-oidc"
+kubeconfig_local_oidc_issuer: https://auth.smb-111.azby.fr
+kubeconfig_local_oidc_client_id: kubernetes
+
