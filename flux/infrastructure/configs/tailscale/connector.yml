@@ -1,0 +1,11 @@
+---
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: smb-111-router
+spec:
+  hostname: smb-111-router
+  subnetRouter:
+    advertiseRoutes:
+      - 192.168.1.210/32
+
