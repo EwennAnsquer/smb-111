@@ -24,7 +24,11 @@
 
     - name: "Créer le namespace {{ flux_bootstrap_namespace }}"
       ansible.builtin.shell: |
-        kubectl create namespace {{ flux_bootstrap_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace {{ flux_bootstrap_namespace }} --dry-run=client -o yaml | kubectl apply --validate=false -f -
+      register: ns_create
+      until: ns_create.rc == 0
+      retries: 10
+      delay: 15
       changed_when: false
 
     - name: Créer le secret sops-age (déchiffrement SOPS par Flux)

@@ -33,6 +33,24 @@
   failed_when: false
   changed_when: false
 
+- name: Installer unzip (requis pour extraire kubelogin)
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+  become: yes
+  when: kubelogin_check.rc != 0
+
+- name: Installer kubelogin (plugin kubectl oidc-login)
+  ansible.builtin.unarchive:
+    src: "{{ kubeconfig_local_kubelogin_url }}"
+    dest: /usr/local/bin/
+    remote_src: yes
+    include:
+      - kubelogin
+    creates: /usr/local/bin/kubelogin
+  become: yes
+  when: kubelogin_check.rc != 0
+
 - name: Installer kubelogin (plugin kubectl oidc-login)
   ansible.builtin.unarchive:
     src: "{{ kubeconfig_local_kubelogin_url }}"
