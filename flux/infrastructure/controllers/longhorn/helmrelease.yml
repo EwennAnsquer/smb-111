@@ -16,5 +16,6 @@ spec:
   interval: 1m0s
   values:
     defaultSettings:
-      backupTarget: "s3://smb-111@us-east-1/"
-      backupTargetSecret: "minio-backup-secret"
+      defaultReplicaCount: 2
+    persistence:
+      defaultClassReplicaCount: 2
