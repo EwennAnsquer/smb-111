@@ -9,7 +9,7 @@ spec:
   chart:
     spec:
       chart: traefik
-      version: "*"
+      version: "41.6.0"
       sourceRef:
         kind: HelmRepository
         name: traefik-repo
@@ -19,13 +19,10 @@ spec:
   values:
     ingressRoute:
       dashboard:
-        enabled: true
-        matchRule: "Host(`dashboard.localhost`)"
-        entryPoints:
-          - web
+        enabled: false
     providers:
       kubernetesGateway:
-        enabled: true
+        enabled: false
       kubernetesCRD:
         allowCrossNamespace: true
     gateway:
@@ -41,11 +38,32 @@ spec:
               to: websecure
               scheme: https
               permanent: true
-    additionalArguments:
-      - "--log.level=INFO"
-      - "--accesslog=true"
-      - "--accesslog.format=json"
-      - "--accesslog.fields.general.defaultmode=keep"
-      - "--accesslog.fields.headers.defaultmode=drop"
+    logs:
+      general:
+        level: INFO
+      access:
+        enabled: true
+        format: json
+        fields:
+          general:
+            defaultmode: keep
+          headers:
+            defaultmode: drop
     deployment:
       replicas: 2
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
