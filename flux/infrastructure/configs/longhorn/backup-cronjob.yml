@@ -8,6 +8,7 @@ spec:
   name: daily-backup
   groups:
     - default
+    - daily-backup
   task: backup
   cron: "0 2 * * *"
   retain: 7
