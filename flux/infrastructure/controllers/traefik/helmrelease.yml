@@ -41,5 +41,16 @@ spec:
               to: websecure
               scheme: https
               permanent: true
+    logs:
+      general:
+        level: INFO
+      access:
+        enabled: true
+        format: json
+        fields:
+          general:
+            defaultmode: keep
+          headers:
+            defaultmode: drop
     deployment:
       replicas: 2

@@ -86,6 +86,11 @@ spec:
           // Lit les fichiers et les transmet à Loki.
           loki.source.file "pod_logs" {
             targets    = local.file_match.pod_logs.targets
+            forward_to = [loki.process.cri.receiver]
+          }
+
+          loki.process "cri" {
+            stage.cri {}
             forward_to = [loki.write.default.receiver]
           }
 
