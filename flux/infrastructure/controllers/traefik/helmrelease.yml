@@ -38,6 +38,9 @@ spec:
               to: websecure
               scheme: https
               permanent: true
+    additionalArguments:
+      - "--accesslog=true"
+      - "--accesslog.format=json"
     deployment:
       replicas: 2
     topologySpreadConstraints:
