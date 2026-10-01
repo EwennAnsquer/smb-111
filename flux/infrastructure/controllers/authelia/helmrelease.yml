@@ -11,8 +11,7 @@ spec:
   chart:
     spec:
       chart: authelia
-      # Chart 0.11.x (Authelia 4.39.x). Voir les versions : helm search repo authelia/authelia --versions
-      version: '0.11.x'
+      version: '0.11.22'
       sourceRef:
         kind: HelmRepository
         name: authelia
@@ -93,9 +92,17 @@ spec:
               algorithm: 'RS256'
               key:
                 path: '/secrets/authelia-oidc/oidc.jwks.rsa.4096.pem'
+          claims_policies:
+            kubernetes:
+              id_token:
+                - 'groups'
+                - 'preferred_username'
+                - 'email'
+                - 'name'
           clients:
             - client_id: 'kubernetes'
               client_name: 'Kubernetes Cluster Access'
+              claims_policy: 'kubernetes'
               public: true
               require_pkce: true
               pkce_challenge_method: 'S256'
@@ -161,6 +168,6 @@ spec:
               - 'vmalert.smb-111.azby.fr'
               - 'alertmanager.smb-111.azby.fr'
             policy: one_factor
-            subject: 'group:admins'
+            subject: 'group:admin'
           - domain: '*.smb-111.azby.fr'
             policy: one_factor
