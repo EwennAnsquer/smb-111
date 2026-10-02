@@ -1,0 +1,10 @@
+---
+# Qui peut atteindre SSH (22), HTTP/HTTPS (80, 443) et l'API (6443 sur les masters).
+# Pour être plus strict, remplacez par l'IP de la machine devops (ex. "192.168.1.50/32").
+hardening_admin_sources:
+  - "192.168.1.0/24"
+
+hardening_pod_cidr: "10.42.0.0/16"
+hardening_service_cidr: "10.43.0.0/16"
+
+hardening_ssh_permit_root_login: "prohibit-password"

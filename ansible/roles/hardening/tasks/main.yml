@@ -1,0 +1,97 @@
+---
+- name: Installer ufw et unattended-upgrades
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - unattended-upgrades
+    state: present
+    update_cache: yes
+
+# ---------- Pare-feu ----------
+# Les règles sont ajoutées AVANT d'activer ufw, pour ne pas se couper l'accès SSH.
+
+- name: Autoriser SSH, HTTP et HTTPS depuis les sources d'administration
+  community.general.ufw:
+    rule: allow
+    src: "{{ item.0 }}"
+    to_port: "{{ item.1 }}"
+    proto: tcp
+    comment: "admin {{ item.1 }}"
+  loop: "{{ hardening_admin_sources | product(['22', '80', '443']) | list }}"
+
+- name: Autoriser l'API Kubernetes (6443) sur les masters
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+    to_port: "6443"
+    proto: tcp
+    comment: "API Kubernetes"
+  loop: "{{ hardening_admin_sources }}"
+  when: inventory_hostname in groups['masters']
+
+- name: Faire confiance aux autres nœuds du cluster (kubelet, etcd, VXLAN, Longhorn)
+  community.general.ufw:
+    rule: allow
+    src: "{{ hostvars[item].ansible_host | default(item) }}"
+    comment: "noeud {{ item }}"
+  loop: "{{ groups['k3s_cluster'] }}"
+
+- name: Autoriser le réseau des pods et des services (préconisation K3s)
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+    comment: "k3s pods/services"
+  loop:
+    - "{{ hardening_pod_cidr }}"
+    - "{{ hardening_service_cidr }}"
+
+- name: Politique par défaut, entrant refusé
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Politique par défaut, sortant autorisé
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Politique par défaut, trafic routé autorisé (réseau des pods)
+  community.general.ufw:
+    default: allow
+    direction: routed
+
+- name: Activer ufw avec journalisation
+  community.general.ufw:
+    state: enabled
+    logging: low
+
+# ---------- SSH ----------
+- name: Durcir SSH (fichier de configuration prioritaire)
+  ansible.builtin.template:
+    src: sshd-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Recharger sshd
+
+# ---------- Mises à jour de sécurité automatiques ----------
+- name: Activer les mises à jour automatiques
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Interdire le redémarrage automatique
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "false";
