@@ -5,8 +5,10 @@ metadata:
   name: authelia
   namespace: authelia-system
 spec:
-  interval: 30m
-  timeout: 10m
+  timeout: 1m0s
+  install:
+    remediation:
+      retries: -1
   releaseName: authelia
   chart:
     spec:

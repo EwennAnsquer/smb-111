@@ -5,7 +5,10 @@ metadata:
   name: traefik
   namespace: traefik-system
 spec:
-  interval: 5m0s
+  interval: 1m0s
+  install:
+    remediation:
+      retries: -1
   chart:
     spec:
       chart: traefik

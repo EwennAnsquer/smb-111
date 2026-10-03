@@ -14,6 +14,9 @@ spec:
         name: longhorn-repo
       version: v1.12.1
   interval: 1m0s
+  install:
+    remediation:
+      retries: -1
   values:
     defaultSettings:
       defaultReplicaCount: 2

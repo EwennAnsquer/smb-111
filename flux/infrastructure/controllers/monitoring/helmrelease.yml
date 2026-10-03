@@ -11,7 +11,10 @@ spec:
       namespace: longhorn-system
     - name: authelia
       namespace: authelia-system
-  timeout: 10m
+  timeout: 1m0s
+  install:
+    remediation:
+      retries: -1
   releaseName: vm-stack
   chart:
     spec:
