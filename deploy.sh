@@ -69,6 +69,16 @@ sops -d group_vars/secrets.enc.yml >"$TMP_ANSIBLE_VARS"
   sed 's/^/  /' "$SOPS_AGE_KEY_FILE"
 } >>"$TMP_ANSIBLE_VARS"
 
+if [ "${FRESH_INSTALL:-0}" = "1" ]; then
+  FLUX_PATH="$PROJECT_DIR/flux/clusters/prod"
+  if ls "$FLUX_PATH"/gotk-*.yaml >/dev/null 2>&1; then
+    echo "Réinstallation : suppression des anciens gotk-* avant le bootstrap..."
+    git -C "$PROJECT_DIR" rm -q "$FLUX_PATH"/gotk-*.yaml
+    git -C "$PROJECT_DIR" commit -qm "Reset flux files before fresh bootstrap"
+    git -C "$PROJECT_DIR" push
+  fi
+fi
+
 echo -e "\nLancement du playbook Ansible..."
 ansible-playbook -i inventory.ini playbook.yml -e @"$TMP_ANSIBLE_VARS"
 
