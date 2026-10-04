@@ -14,11 +14,13 @@ spec:
         name: longhorn-repo
       version: v1.12.1
   interval: 1m0s
+  timeout: 15m
   install:
     remediation:
       retries: -1
   values:
     defaultSettings:
       defaultReplicaCount: 2
+      deletingConfirmationFlag: true
     persistence:
       defaultClassReplicaCount: 2
