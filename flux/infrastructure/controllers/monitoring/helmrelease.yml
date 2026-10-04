@@ -26,10 +26,6 @@ spec:
         name: victoria-metrics
         namespace: monitoring-system
       interval: 12h
-  install:
-    remediation:
-      retries: -1
-      remediateLastFailure: true
   upgrade:
     cleanupOnFail: true
     remediation:

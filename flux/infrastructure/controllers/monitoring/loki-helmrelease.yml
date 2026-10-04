@@ -20,10 +20,6 @@ spec:
         name: grafana-community
         namespace: monitoring-system
       interval: 12h
-  install:
-    remediation:
-      retries: 3
-      remediateLastFailure: true
   upgrade:
     cleanupOnFail: true
     remediation:

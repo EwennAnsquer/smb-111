@@ -17,8 +17,6 @@ spec:
         kind: HelmRepository
         name: traefik-repo
         namespace: traefik-system
-  install:
-    createNamespace: true
   values:
     ingressRoute:
       dashboard:

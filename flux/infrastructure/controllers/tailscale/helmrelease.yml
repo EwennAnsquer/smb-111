@@ -19,9 +19,6 @@ spec:
         name: tailscale-repo
         namespace: tailscale-system
       interval: 12h
-  install:
-    remediation:
-      retries: -1
   upgrade:
     remediation:
       retries: 3
