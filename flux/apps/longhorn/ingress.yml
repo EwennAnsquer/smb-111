@@ -5,10 +5,16 @@ metadata:
   name: longhorn-ingress
   namespace: longhorn-system
   annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
 spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - longhorn.smb-111.azby.fr
+      secretName: longhorn-tls
   rules:
     - host: longhorn.smb-111.azby.fr
       http:
