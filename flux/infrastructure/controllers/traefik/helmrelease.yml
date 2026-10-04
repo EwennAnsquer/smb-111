@@ -6,6 +6,7 @@ metadata:
   namespace: traefik-system
 spec:
   interval: 1m0s
+  timeout: 10m
   install:
     remediation:
       retries: -1

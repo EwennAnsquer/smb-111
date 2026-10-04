@@ -6,12 +6,12 @@ metadata:
   namespace: monitoring-system
 spec:
   interval: 30m
+  timeout: 10m
   dependsOn:
     - name: longhorn-release
       namespace: longhorn-system
     - name: authelia
       namespace: authelia-system
-  timeout: 1m0s
   install:
     remediation:
       retries: -1
