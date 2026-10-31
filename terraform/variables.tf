@@ -19,10 +19,23 @@ variable "ssh_public_key_path" {
 
 variable "masters" {
   description = "Dictionnaire des nœuds maîtres"
-  type = map(object({ id = number, ip = string, ram = number, cores = number }))
+  type = map(object({ id = number, ip = string, ram = number, cores = number, size = number }))
 }
 
 variable "workers" {
   description = "Dictionnaire des nœuds workers"
-  type = map(object({ id = number, ip = string, ram = number, cores = number }))
+  type = map(object({ id = number, ip = string, ram = number, cores = number, size = number }))
 }
+
+variable "master_datastore" {
+  description = "Proxmox Storage for masters disks"
+  type        = string
+  default     = "local-lvm"
+}
+
+variable "worker_datastore" {
+  description = "Proxmox Storage for workers disks (NFS)"
+  type        = string
+  default     = "nfs-smb-111"
+}
+

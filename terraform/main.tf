@@ -1,5 +1,14 @@
 locals {
-  all_nodes = merge(var.masters, var.workers)
+  all_nodes = merge(
+    { for k, v in var.masters : k => merge(v, {
+      datastore   = var.master_datastore
+      file_format = "raw"
+    }) },
+    { for k, v in var.workers : k => merge(v, {
+      datastore   = var.worker_datastore
+      file_format = "qcow2"
+    }) },
+  )
 }
 
 resource "proxmox_download_file" "debian_cloud_image" {
@@ -26,10 +35,11 @@ resource "proxmox_virtual_environment_vm" "k3s_nodes" {
   }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = each.value.datastore
     file_id      = proxmox_download_file.debian_cloud_image.id
+    file_format  = each.value.file_format
     interface    = "scsi0"
-    size         = 20
+    size         = each.value.size
   }
 
   network_device {
@@ -37,6 +47,8 @@ resource "proxmox_virtual_environment_vm" "k3s_nodes" {
   }
 
   initialization {
+    datastore_id = "local-lvm"
+
     ip_config {
       ipv4 {
         address = "${each.value.ip}/24"
