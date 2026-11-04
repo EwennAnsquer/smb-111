@@ -5,4 +5,5 @@ resources:
   - backup-cronjob.yml
   - snapshot-cleanup-cronjob.yml
   - snapshot-delete-cronjob.yml
+  - filesystem-trim-cronjob.yml
 
