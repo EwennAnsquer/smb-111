@@ -63,7 +63,7 @@ spec:
     # ------------------------------------------------------------------
     vmsingle:
       spec:
-        retentionPeriod: '3'      # 3 mois d'historique, à ajuster selon l'espace disque
+        retentionPeriod: '30d'
         storage:
           storageClassName: longhorn
           accessModes:
