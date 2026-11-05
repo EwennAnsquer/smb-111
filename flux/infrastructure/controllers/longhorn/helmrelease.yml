@@ -26,5 +26,6 @@ spec:
     defaultSettings:
       defaultReplicaCount: 2
       deletingConfirmationFlag: true
+      removeSnapshotsDuringFilesystemTrim: true
     persistence:
       defaultClassReplicaCount: 2
