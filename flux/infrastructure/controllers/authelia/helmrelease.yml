@@ -178,6 +178,8 @@ spec:
               - 'alertmanager.smb-111.azby.fr'
             policy: one_factor
             subject: 'group:admin'
+          - domain: 'grafana.smb-111.azby.fr'
+            policy: one_factor
           - domain: '*.smb-111.azby.fr'
             policy: one_factor
             subject: 'group:admin'
