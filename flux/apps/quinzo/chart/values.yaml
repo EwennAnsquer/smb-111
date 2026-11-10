@@ -1,0 +1,111 @@
+# Valeurs par défaut du chart Quinzo.
+#
+# ⚠️  Quinzo garde la partie en mémoire : il tourne avec UNE seule réplique.
+#     Le nombre de réplicas n'est volontairement pas configurable.
+
+image:
+  # Image publique sur Docker Hub (aucun imagePullSecret nécessaire).
+  repository: azby/smb-111
+  # Vide = appVersion du chart (1.0.0)
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+quinzo:
+  # URL montrée aux joueurs et encodée dans le QR code (ex. https://quiz.maison.lan).
+  # Vide = déduite de l'Ingress s'il est activé. Sinon, l'hôte peut la saisir à l'écran (« ✏️ Adresse »).
+  publicUrl: ""
+  # Code de partie fixe (4 à 8 chiffres, ENTRE GUILLEMETS). Vide = nouveau code à chaque démarrage.
+  pin: ""
+  maxPlayers: 50
+  # Derrière un Service / Ingress, les IP des clients ne sont pas fiables (NAT, contrôleur Ingress).
+  # Laisser à false : les exclusions changent alors le code au lieu de bannir une IP.
+  trustClientIp: false
+  adminKey:
+    # Clé qui donne accès à l'écran hôte et à l'éditeur (/host?key=...).
+    # Vide = générée aléatoirement à l'installation et conservée lors des mises à jour.
+    value: ""
+    # Ou utiliser un Secret existant :
+    existingSecret: ""
+    existingSecretKey: admin-key
+  # Variables d'environnement supplémentaires
+  extraEnv: []
+
+service:
+  # ClusterIP (avec Ingress), NodePort ou LoadBalancer (MetalLB, k3s ServiceLB…)
+  type: ClusterIP
+  port: 3000
+  # Uniquement pour type NodePort (30000-32767). Vide = attribué par Kubernetes.
+  nodePort: null
+  # Uniquement pour type LoadBalancer, si ton fournisseur le permet.
+  loadBalancerIP: ""
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # Les WebSockets fonctionnent sans annotation : le serveur envoie un ping toutes les 10 s.
+  host: quinzo.local
+  tls:
+    enabled: false
+    # Secret TLS existant (ou créé par cert-manager via les annotations)
+    secretName: ""
+
+persistence:
+  # Stocke les thèmes (dont ceux que tu crées dans l'éditeur) et la clé d'admin générée.
+  enabled: true
+  existingClaim: ""
+  # Vide = StorageClass par défaut du cluster
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+# Bloque tout trafic sortant du pod (Quinzo n'en a pas besoin) et limite l'entrant au port HTTP.
+networkPolicy:
+  enabled: false
+  # Sources autorisées en entrée. Vide = toutes. Exemple pour n'autoriser que le contrôleur Ingress :
+  # ingressFrom:
+  #   - namespaceSelector:
+  #       matchLabels:
+  #         kubernetes.io/metadata.name: ingress-nginx
+  ingressFrom: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
