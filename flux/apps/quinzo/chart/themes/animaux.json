@@ -1,0 +1,222 @@
+{
+  "name": "Animaux",
+  "emoji": "🐾",
+  "color": "#f97316",
+  "description": "Le règne animal dans tous ses états.",
+  "questions": [
+    {
+      "type": "qcm",
+      "question": "Quel est le plus grand animal du monde ?",
+      "choices": [
+        "L'éléphant d'Afrique",
+        "La baleine bleue",
+        "Le requin-baleine",
+        "La girafe"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel est l'animal terrestre le plus rapide ?",
+      "choices": [
+        "Le lion",
+        "L'antilope",
+        "Le guépard",
+        "Le cheval"
+      ],
+      "answer": 2,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Combien de cœurs possède une pieuvre ?",
+      "choices": [
+        "1",
+        "2",
+        "3",
+        "8"
+      ],
+      "answer": 2,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Comment appelle-t-on le petit de la chèvre ?",
+      "choices": [
+        "L'agneau",
+        "Le chevreau",
+        "Le faon",
+        "Le poulain"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel mammifère est capable de voler ?",
+      "choices": [
+        "L'écureuil volant",
+        "La chauve-souris",
+        "Le colugo",
+        "Le phalanger"
+      ],
+      "answer": 1,
+      "difficulty": "moyen",
+      "explanation": "Les autres planent, mais ne volent pas vraiment !"
+    },
+    {
+      "type": "qcm",
+      "question": "Combien de temps dure environ la gestation d'une éléphante ?",
+      "choices": [
+        "9 mois",
+        "12 mois",
+        "22 mois",
+        "36 mois"
+      ],
+      "answer": 2,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "De quoi se nourrit principalement le panda géant ?",
+      "choices": [
+        "De poissons",
+        "De bambou",
+        "D'insectes",
+        "De fruits"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Lequel de ces animaux est un mammifère qui pond des œufs ?",
+      "choices": [
+        "Le kangourou",
+        "L'ornithorynque",
+        "Le koala",
+        "Le pangolin"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Pourquoi les flamants roses sont-ils roses ?",
+      "choices": [
+        "C'est génétique",
+        "À cause de leur alimentation",
+        "À cause du soleil",
+        "Pour séduire"
+      ],
+      "answer": 1,
+      "difficulty": "moyen",
+      "explanation": "Les pigments des petites crevettes et algues qu'ils mangent."
+    },
+    {
+      "type": "qcm",
+      "question": "Lequel de ces animaux peut vivre le plus longtemps ?",
+      "choices": [
+        "La tortue des Galápagos",
+        "L'éléphant",
+        "Le requin du Groenland",
+        "Le perroquet"
+      ],
+      "answer": 2,
+      "difficulty": "difficile",
+      "explanation": "Il pourrait dépasser 250 ans."
+    },
+    {
+      "type": "qcm",
+      "question": "Comment s'appelle la femelle du sanglier ?",
+      "choices": [
+        "La biche",
+        "La laie",
+        "La hase",
+        "La louve"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel animal est le symbole du WWF ?",
+      "choices": [
+        "Le koala",
+        "Le panda",
+        "Le tigre",
+        "L'ours polaire"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "vraifaux",
+      "question": "Les dauphins sont des poissons.",
+      "answer": false,
+      "difficulty": "facile",
+      "explanation": "Ce sont des mammifères."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Une girafe a autant de vertèbres dans le cou qu'un humain.",
+      "answer": true,
+      "difficulty": "difficile",
+      "explanation": "7 vertèbres cervicales, simplement beaucoup plus longues."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Les autruches enfouissent leur tête dans le sable quand elles ont peur.",
+      "answer": false,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la vitesse de pointe d'un guépard ?",
+      "answer": 110,
+      "difficulty": "moyen",
+      "unit": "km/h",
+      "tolerance": 0.4
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de pattes possède un homard (pinces comprises) ?",
+      "answer": 10,
+      "difficulty": "moyen",
+      "tolerance": 0.5,
+      "explanation": "C'est un décapode : « dix pieds »."
+    },
+    {
+      "type": "ordre",
+      "question": "Du plus léger au plus lourd",
+      "items": [
+        "Colibri",
+        "Chat",
+        "Lion",
+        "Girafe",
+        "Éléphant d'Afrique"
+      ],
+      "difficulty": "facile"
+    },
+    {
+      "type": "texte",
+      "question": "Quel animal est surnommé « le roi des animaux » ?",
+      "answer": [
+        "Lion",
+        "Le lion"
+      ],
+      "difficulty": "facile"
+    },
+    {
+      "type": "texte",
+      "question": "Comment appelle-t-on le cri du loup ?",
+      "answer": [
+        "Hurlement",
+        "Le hurlement",
+        "Hurler"
+      ],
+      "difficulty": "moyen"
+    }
+  ]
+}

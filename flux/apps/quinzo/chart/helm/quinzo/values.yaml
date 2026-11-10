@@ -1,0 +1,171 @@
+# Valeurs par défaut du chart Quinzo.
+#
+# Avec Redis (intégré ou externe), Quinzo tourne sur plusieurs réplicas :
+#  - l'état de la partie, les sessions admin et les thèmes sont dans Redis ;
+#  - Socket.IO relaie les messages entre réplicas (adaptateur Redis) ;
+#  - un réplica « leader » élu dans Redis gère les échéances (fin du chrono…), relève automatique ;
+#  - sessions collantes (sticky) pour que chaque navigateur reste sur le même pod.
+# Sans Redis (redis.enabled=false et pas d'externalRedis), une seule réplique est possible.
+
+replicaCount: 2
+
+image:
+  # Image construite depuis le Dockerfile du projet, puis poussée dans ton registre.
+  repository: quinzo
+  # Vide = appVersion du chart
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+quinzo:
+  # URL montrée aux joueurs et encodée dans le QR code (ex. https://quiz.maison.lan).
+  # Vide = déduite de l'Ingress s'il est activé.
+  publicUrl: ""
+  # Code de partie fixe (4 à 8 chiffres, ENTRE GUILLEMETS). Vide = aléatoire.
+  pin: ""
+  maxPlayers: 50
+  # IP réelle des clients lue dans X-Forwarded-For (dernier maillon, ajouté par l'Ingress).
+  # auto = activé si l'Ingress est activé. Ne PAS activer si les clients atteignent les pods directement.
+  trustProxy: auto
+  extraEnv: []
+
+# Connexion à l'écran hôte et à l'éditeur.
+# Désactivée par défaut : l'écran hôte est en accès libre (comme sur un PC à la maison).
+# enabled: true = identifiant / mot de passe obligatoires.
+admin:
+  enabled: false
+  username: admin
+  # Avec enabled: true. Vide = mot de passe aléatoire généré et conservé lors des mises à jour.
+  password: ""
+  # Ou un hash scrypt (node server.js hash-password "..."), prioritaire sur password
+  passwordHash: ""
+  # Ou un Secret existant avec les clés ci-dessous
+  existingSecret: ""
+  usernameKey: admin-username
+  passwordKey: admin-password
+
+# Redis intégré (image Valkey, compatible Redis, licence BSD)
+redis:
+  enabled: true
+  image:
+    repository: valkey/valkey
+    tag: "8.1-alpine"
+    pullPolicy: IfNotPresent
+  # Commande du serveur : valkey-server (Valkey) ou redis-server (image redis officielle)
+  serverCommand: valkey-server
+  # Vide = généré et conservé lors des mises à jour
+  password: ""
+  persistence:
+    # Conserve partie en cours, thèmes et identifiants si le pod Redis redémarre
+    enabled: true
+    storageClass: ""
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+# Ou un Redis existant (redis.enabled=false)
+externalRedis:
+  # ex. redis://redis.infra.svc:6379/0  (rediss:// pour TLS)
+  url: ""
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: redis-password
+  # Port autorisé en sortie par la NetworkPolicy
+  port: 6379
+
+# Sessions collantes : un navigateur reste sur le même pod (requis par le long-polling Socket.IO).
+# Ajoute les annotations ingress-nginx (Ingress) et Traefik (Service), et sessionAffinity ClientIP.
+sticky:
+  enabled: true
+  cookieName: quinzo_sticky
+  maxAgeSeconds: 43200
+
+service:
+  # ClusterIP (avec Ingress), NodePort ou LoadBalancer
+  type: ClusterIP
+  port: 3000
+  nodePort: null
+  loadBalancerIP: ""
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  # Annotations supplémentaires (celles de l'affinité sont ajoutées automatiquement si sticky.enabled)
+  annotations: {}
+  host: quinzo.local
+  tls:
+    enabled: false
+    secretName: ""
+
+# Utilisé seulement sans Redis (une réplique) : stocke thèmes et identifiants admin.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Répartit les réplicas sur des nœuds différents quand c'est possible
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+
+networkPolicy:
+  enabled: false
+  # Sources autorisées vers Quinzo. Vide = toutes.
+  ingressFrom: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 96Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,23 @@
+# Lancement : docker compose up -d --build
+# Arrêt     : docker compose down
+services:
+  quinzo:
+    build: .
+    image: quinzo:latest
+    container_name: quinzo
+    ports:
+      - "${QUINZO_PORT:-3000}:3000"
+    environment:
+      # IP de ton PC sur le Wi-Fi (affichée aux joueurs + QR code). Remplie par les lanceurs.
+      PUBLIC_HOST: "${PUBLIC_HOST:-}"
+      PUBLIC_PORT: "${QUINZO_PORT:-3000}"
+      # Code de partie fixe (facultatif, 4 à 8 chiffres). Vide = nouveau code à chaque démarrage.
+      PIN: "${PIN:-}"
+      # Écran hôte en accès libre par défaut. Définis ADMIN_PASSWORD pour exiger une connexion.
+      ADMIN_USER: "${ADMIN_USER:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+    volumes:
+      # Tes thèmes et le compte admin, visibles dans le dossier ./data sur ton PC
+      - ./data:/data
+    # Pas de redémarrage automatique : le serveur ne tourne que quand tu le lances.
+    restart: "no"

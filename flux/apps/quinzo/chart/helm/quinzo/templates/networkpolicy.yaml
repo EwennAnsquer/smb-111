@@ -1,0 +1,69 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "quinzo.fullname" . }}
+  labels:
+    {{- include "quinzo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "quinzo.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: http
+          protocol: TCP
+      {{- with .Values.networkPolicy.ingressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  egress:
+    # résolution DNS du nom du service Redis
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "quinzo.redisSelectorLabels" . | nindent 14 }}
+      ports:
+        - port: 6379
+          protocol: TCP
+    {{- else if .Values.externalRedis.url }}
+    - ports:
+        - port: {{ .Values.externalRedis.port }}
+          protocol: TCP
+    {{- end }}
+{{- if .Values.redis.enabled }}
+---
+# Redis : joignable uniquement par les pods Quinzo, aucune sortie
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "quinzo.redisName" . }}
+  labels:
+    {{- include "quinzo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "quinzo.redisSelectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "quinzo.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 6379
+          protocol: TCP
+  egress: []
+{{- end }}
+{{- end }}

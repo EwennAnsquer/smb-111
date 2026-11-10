@@ -1,0 +1,43 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "quinzo.fullname" . }}
+  labels:
+    {{- include "quinzo.labels" . | nindent 4 }}
+  {{- if or .Values.ingress.annotations .Values.sticky.enabled }}
+  annotations:
+    {{- if .Values.sticky.enabled }}
+    # ingress-nginx : affinité par cookie (un navigateur reste sur le même pod)
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: {{ .Values.sticky.cookieName | quote }}
+    nginx.ingress.kubernetes.io/session-cookie-max-age: {{ .Values.sticky.maxAgeSeconds | quote }}
+    nginx.ingress.kubernetes.io/session-cookie-samesite: "Lax"
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName | default (printf "%s-tls" (include "quinzo.fullname" .)) }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "quinzo.fullname" . }}
+                port:
+                  name: http
+{{- end }}

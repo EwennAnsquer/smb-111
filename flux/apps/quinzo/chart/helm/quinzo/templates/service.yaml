@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "quinzo.fullname" . }}
+  labels:
+    {{- include "quinzo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+  {{- if or .Values.service.annotations .Values.sticky.enabled }}
+  annotations:
+    {{- if .Values.sticky.enabled }}
+    # Traefik (contrôleur Ingress par défaut de k3s) : affinité par cookie, déclarée sur le Service
+    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: {{ .Values.sticky.cookieName | quote }}
+    traefik.ingress.kubernetes.io/service.sticky.cookie.httponly: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.samesite: "lax"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.maxage: {{ .Values.sticky.maxAgeSeconds | quote }}
+    {{- end }}
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if .Values.sticky.enabled }}
+  # Accès direct (NodePort / LoadBalancer) : un même client reste sur le même pod
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: {{ .Values.sticky.maxAgeSeconds }}
+  {{- end }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "quinzo.selectorLabels" . | nindent 4 }}

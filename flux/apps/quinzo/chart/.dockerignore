@@ -1,0 +1,14 @@
+node_modules
+data
+*.bat
+lancer.sh
+docker-lancer.sh
+*.md
+.git
+Dockerfile
+docker-compose.yml
+.env
+helm
+admin.json
+admin-mot-de-passe.txt
+docs

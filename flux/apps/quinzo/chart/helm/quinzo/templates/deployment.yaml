@@ -1,0 +1,198 @@
+{{- $multi := include "quinzo.multi" . }}
+{{- if and (gt (int .Values.replicaCount) 1) (not $multi) }}
+{{- fail "replicaCount > 1 nécessite Redis : active redis.enabled ou renseigne externalRedis.url (sans Redis, l'état de la partie ne serait pas partagé)." }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "quinzo.fullname" . }}
+  labels:
+    {{- include "quinzo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  replicas: {{ ternary .Values.replicaCount 1 (eq $multi "true") }}
+  {{- if $multi }}
+  # État dans Redis : mise à jour progressive sans coupure (un pod de plus, jamais un de moins)
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  {{- else }}
+  # Une seule instance avec état en mémoire et volume RWO : jamais deux pods en même temps
+  strategy:
+    type: Recreate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "quinzo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "quinzo.labels" . | nindent 8 }}
+        app.kubernetes.io/component: app
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "quinzo.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: quinzo
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "server.js"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3000"
+            - name: DATA_DIR
+              value: /data
+            - name: IN_DOCKER
+              value: "1"
+            - name: NO_OPEN
+              value: "1"
+            - name: TRUST_PROXY
+              value: {{ include "quinzo.trustProxy" . | quote }}
+            - name: MAX_PLAYERS
+              value: {{ .Values.quinzo.maxPlayers | quote }}
+            {{- with (include "quinzo.publicUrl" .) }}
+            - name: PUBLIC_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.quinzo.pin }}
+            - name: PIN
+              value: {{ . | toString | quote }}
+            {{- end }}
+            {{- if .Values.admin.enabled }}
+            # --- compte administrateur ---
+            - name: ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quinzo.adminSecretName" . }}
+                  key: {{ if .Values.admin.existingSecret }}{{ .Values.admin.usernameKey }}{{ else }}admin-username{{ end }}
+            {{- if and (not .Values.admin.existingSecret) .Values.admin.passwordHash }}
+            - name: ADMIN_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quinzo.fullname" . }}
+                  key: admin-password-hash
+            {{- else }}
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quinzo.adminSecretName" . }}
+                  key: {{ if .Values.admin.existingSecret }}{{ .Values.admin.passwordKey }}{{ else }}admin-password{{ end }}
+            {{- end }}
+            {{- end }}
+            # --- Redis (état partagé entre réplicas) ---
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://{{ include "quinzo.redisName" . }}:6379/0"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quinzo.fullname" . }}
+                  key: redis-password
+            {{- else if .Values.externalRedis.url }}
+            - name: REDIS_URL
+              value: {{ .Values.externalRedis.url | quote }}
+            {{- if .Values.externalRedis.existingSecret }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalRedis.existingSecret }}
+                  key: {{ .Values.externalRedis.existingSecretPasswordKey }}
+            {{- else if .Values.externalRedis.password }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quinzo.fullname" . }}
+                  key: redis-password
+            {{- end }}
+            {{- end }}
+            {{- with .Values.quinzo.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            # vérifie aussi l'accès au stockage (Redis)
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # laisse le temps au Service / à l'Ingress de retirer le pod avant l'arrêt
+              exec:
+                command: ["sleep", "3"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          {{- if and (not $multi) .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "quinzo.fullname" .) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+      {{- if $multi }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range . }}
+        - {{ toYaml . | nindent 10 | trim }}
+          labelSelector:
+            matchLabels:
+              {{- include "quinzo.selectorLabels" $ | nindent 14 }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

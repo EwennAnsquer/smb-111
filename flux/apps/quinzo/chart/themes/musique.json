@@ -1,0 +1,235 @@
+{
+  "name": "Musique",
+  "emoji": "🎵",
+  "color": "#ec4899",
+  "description": "Chanteurs, groupes, classique et instruments.",
+  "questions": [
+    {
+      "type": "qcm",
+      "question": "Quel groupe britannique a chanté « Bohemian Rhapsody » ?",
+      "choices": [
+        "The Beatles",
+        "Queen",
+        "The Rolling Stones",
+        "Pink Floyd"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Combien de notes différentes compte une gamme majeure ?",
+      "choices": [
+        "5",
+        "7",
+        "8",
+        "12"
+      ],
+      "answer": 1,
+      "difficulty": "moyen",
+      "explanation": "Do, ré, mi, fa, sol, la, si."
+    },
+    {
+      "type": "qcm",
+      "question": "Quel compositeur a continué à composer malgré sa surdité ?",
+      "choices": [
+        "Mozart",
+        "Beethoven",
+        "Chopin",
+        "Bach"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Qui est surnommé le « King of Pop » ?",
+      "choices": [
+        "Elvis Presley",
+        "Prince",
+        "Michael Jackson",
+        "Freddie Mercury"
+      ],
+      "answer": 2,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "De quel pays vient le groupe ABBA ?",
+      "choices": [
+        "Norvège",
+        "Danemark",
+        "Suède",
+        "Finlande"
+      ],
+      "answer": 2,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel chanteur français a interprété « La Bohème » ?",
+      "choices": [
+        "Jacques Brel",
+        "Charles Aznavour",
+        "Georges Brassens",
+        "Serge Gainsbourg"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel duo français est célèbre pour ses casques de robots ?",
+      "choices": [
+        "Justice",
+        "Air",
+        "Daft Punk",
+        "Cassius"
+      ],
+      "answer": 2,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quelle chanteuse a sorti l'album « 21 » en 2011 ?",
+      "choices": [
+        "Rihanna",
+        "Adele",
+        "Beyoncé",
+        "Amy Winehouse"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel compositeur a écrit « Les Quatre Saisons » ?",
+      "choices": [
+        "Bach",
+        "Vivaldi",
+        "Haendel",
+        "Mozart"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Combien de musiciens composent un quatuor ?",
+      "choices": [
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Qui a composé l'opéra « La Flûte enchantée » ?",
+      "choices": [
+        "Verdi",
+        "Mozart",
+        "Wagner",
+        "Puccini"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel instrument Jimi Hendrix a-t-il rendu légendaire ?",
+      "choices": [
+        "La batterie",
+        "La guitare électrique",
+        "Le saxophone",
+        "La basse"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quelle star a chanté « L'Hymne à l'amour » depuis la tour Eiffel lors de la cérémonie d'ouverture des JO de Paris 2024 ?",
+      "choices": [
+        "Lady Gaga",
+        "Aya Nakamura",
+        "Céline Dion",
+        "Mylène Farmer"
+      ],
+      "answer": 2,
+      "difficulty": "moyen",
+      "explanation": "Une reprise d'Édith Piaf, pour son grand retour sur scène."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Les Beatles venaient de Liverpool.",
+      "answer": true,
+      "difficulty": "facile"
+    },
+    {
+      "type": "vraifaux",
+      "question": "Stromae est un artiste suisse.",
+      "answer": false,
+      "difficulty": "facile",
+      "explanation": "Il est belge."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Le vrai nom de Johnny Hallyday était Jean-Philippe Smet.",
+      "answer": true,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "estimation",
+      "question": "En quelle année est mort Elvis Presley ?",
+      "answer": 1977,
+      "difficulty": "difficile",
+      "min": 1950,
+      "max": 2005
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de touches compte un piano standard ?",
+      "answer": 88,
+      "difficulty": "moyen",
+      "tolerance": 0.4,
+      "explanation": "52 blanches et 36 noires."
+    },
+    {
+      "type": "ordre",
+      "question": "Du compositeur le plus ancien au plus récent (année de naissance)",
+      "items": [
+        "Bach",
+        "Mozart",
+        "Beethoven",
+        "Debussy"
+      ],
+      "difficulty": "moyen",
+      "details": [
+        "1685",
+        "1756",
+        "1770",
+        "1862"
+      ]
+    },
+    {
+      "type": "texte",
+      "question": "Quel est le nom de scène de Stefani Germanotta ?",
+      "answer": [
+        "Lady Gaga"
+      ],
+      "difficulty": "moyen"
+    },
+    {
+      "type": "texte",
+      "question": "Quel instrument à cordes et archet se joue assis, coincé entre les jambes ?",
+      "answer": [
+        "Violoncelle",
+        "Le violoncelle"
+      ],
+      "difficulty": "moyen"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: quinzo
+description: Quinzo — quiz multijoueur (écran hôte + joueurs), plusieurs réplicas avec état partagé dans Redis
+type: application
+version: 0.2.0
+appVersion: "1.1.0"
+keywords:
+  - quiz
+  - game
+  - socket.io
+  - redis

@@ -1,0 +1,48 @@
+🎉 Quinzo est déployé dans le namespace {{ .Release.Namespace }}.
+{{- if include "quinzo.multi" . }}
+   Mode multi-réplicas : {{ .Values.replicaCount }} pod(s), état partagé dans {{ if .Values.redis.enabled }}le Redis intégré ({{ include "quinzo.redisName" . }}){{ else }}le Redis externe{{ end }}.
+   Sessions collantes : {{ if .Values.sticky.enabled }}activées (cookie {{ .Values.sticky.cookieName }}){{ else }}désactivées (le client passe d'abord en WebSocket ; pense à activer l'affinité de ton Ingress){{ end }}.
+{{- else }}
+   Mode une instance (sans Redis).
+{{- end }}
+
+1. Écran hôte :
+{{- if not .Values.admin.enabled }}
+   Accès libre (pas de mot de passe). Pour l'exiger : --set admin.enabled=true
+{{- else if .Values.admin.existingSecret }}
+   Connexion obligatoire. Secret existant « {{ .Values.admin.existingSecret }} » (clés {{ .Values.admin.usernameKey }} / {{ .Values.admin.passwordKey }}).
+{{- else if .Values.admin.passwordHash }}
+   Connexion obligatoire. Identifiant : {{ .Values.admin.username }} — mot de passe : celui correspondant à admin.passwordHash.
+{{- else }}
+   Connexion obligatoire.
+   Identifiant  : {{ .Values.admin.username }}
+   Mot de passe : kubectl -n {{ .Release.Namespace }} get secret {{ include "quinzo.fullname" . }} -o jsonpath='{.data.admin-password}' | base64 -d; echo
+{{- end }}
+
+2. Accès :
+{{- $url := include "quinzo.publicUrl" . }}
+{{- if .Values.ingress.enabled }}
+   Joueurs      : {{ $url }}
+   Écran hôte   : {{ $url }}/host
+{{- else if eq .Values.service.type "NodePort" }}
+   export NODE_PORT=$(kubectl -n {{ .Release.Namespace }} get svc {{ include "quinzo.fullname" . }} -o jsonpath='{.spec.ports[0].nodePort}')
+   Joueurs      : http://<IP d'un nœud>:$NODE_PORT
+   Écran hôte   : http://<IP d'un nœud>:$NODE_PORT/host
+{{- else if eq .Values.service.type "LoadBalancer" }}
+   kubectl -n {{ .Release.Namespace }} get svc {{ include "quinzo.fullname" . }} -w    # attends l'EXTERNAL-IP
+   Joueurs      : http://<EXTERNAL-IP>:{{ .Values.service.port }}
+   Écran hôte   : http://<EXTERNAL-IP>:{{ .Values.service.port }}/host
+{{- else }}
+   Service ClusterIP : pour tester depuis ce poste
+     kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "quinzo.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+     puis http://localhost:{{ .Values.service.port }}/host
+   Pour les joueurs, active l'Ingress (ingress.enabled=true) ou passe en NodePort / LoadBalancer.
+{{- end }}
+{{- if not $url }}
+
+   ℹ️  Aucune URL publique (quinzo.publicUrl) : sur l'écran hôte, « ✏️ Adresse » permet de corriger l'adresse du QR code.
+{{- end }}
+
+3. Vérifications :
+   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+   helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

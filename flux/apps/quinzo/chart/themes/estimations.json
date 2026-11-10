@@ -1,0 +1,137 @@
+{
+  "name": "Estimations",
+  "emoji": "🎯",
+  "color": "#14b8a6",
+  "description": "Que des questions à curseur : le plus proche gagne !",
+  "questions": [
+    {
+      "type": "estimation",
+      "question": "Combien de marches faut-il gravir pour atteindre le sommet de la tour Eiffel ?",
+      "answer": 1665,
+      "difficulty": "moyen",
+      "tolerance": 0.4
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la hauteur de la tour Eiffel (antennes comprises) ?",
+      "answer": 330,
+      "difficulty": "facile",
+      "unit": "m",
+      "tolerance": 0.3
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la longueur totale de la Grande Muraille de Chine ?",
+      "answer": 21196,
+      "difficulty": "difficile",
+      "unit": "km",
+      "tolerance": 0.6,
+      "explanation": "Selon le relevé officiel chinois de 2012."
+    },
+    {
+      "type": "estimation",
+      "question": "Combien y a-t-il de pays membres de l'ONU ?",
+      "answer": 193,
+      "difficulty": "moyen",
+      "tolerance": 0.25
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la profondeur de la fosse des Mariannes ?",
+      "answer": 11000,
+      "difficulty": "difficile",
+      "unit": "m",
+      "tolerance": 0.4,
+      "explanation": "Environ 10 900 à 11 000 m."
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de litres de sang circulent dans le corps d'un adulte ?",
+      "answer": 5,
+      "difficulty": "facile",
+      "unit": "L",
+      "tolerance": 0.5
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la distance à vol d'oiseau entre Paris et Marseille ?",
+      "answer": 660,
+      "difficulty": "moyen",
+      "unit": "km",
+      "tolerance": 0.3
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la distance moyenne entre la Terre et le Soleil ?",
+      "answer": 150,
+      "difficulty": "moyen",
+      "unit": "millions de km",
+      "tolerance": 0.4
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de langues parle-t-on environ dans le monde ?",
+      "answer": 7000,
+      "difficulty": "difficile",
+      "tolerance": 0.5
+    },
+    {
+      "type": "estimation",
+      "question": "Quel est l'âge de l'Univers ?",
+      "answer": 13.8,
+      "difficulty": "moyen",
+      "unit": "milliards d'années",
+      "tolerance": 0.4
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de cheveux a-t-on en moyenne sur la tête ?",
+      "answer": 100000,
+      "difficulty": "moyen",
+      "tolerance": 0.6,
+      "explanation": "Entre 100 000 et 150 000 selon les personnes."
+    },
+    {
+      "type": "estimation",
+      "question": "En quelle année la tour Eiffel a-t-elle été inaugurée ?",
+      "answer": 1889,
+      "difficulty": "facile",
+      "min": 1800,
+      "max": 1950,
+      "explanation": "Pour l'Exposition universelle."
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est l'altitude du mont Blanc ?",
+      "answer": 4806,
+      "difficulty": "moyen",
+      "unit": "m",
+      "tolerance": 0.15,
+      "explanation": "4 805,59 m lors de la mesure de 2021 ; elle varie un peu selon l'épaisseur de neige."
+    },
+    {
+      "type": "estimation",
+      "question": "À quelle vitesse se propage le son dans l'air ?",
+      "answer": 1235,
+      "difficulty": "difficile",
+      "unit": "km/h",
+      "tolerance": 0.5,
+      "explanation": "Environ 343 m/s à 20 °C."
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de dents a un humain adulte (dents de sagesse comprises) ?",
+      "answer": 32,
+      "difficulty": "facile",
+      "tolerance": 0.4
+    },
+    {
+      "type": "estimation",
+      "question": "Combien de kilomètres mesure l'équateur terrestre ?",
+      "answer": 40075,
+      "difficulty": "moyen",
+      "unit": "km",
+      "tolerance": 0.4
+    }
+  ]
+}

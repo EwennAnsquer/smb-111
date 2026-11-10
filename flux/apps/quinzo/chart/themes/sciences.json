@@ -1,0 +1,253 @@
+{
+  "name": "Sciences",
+  "emoji": "🔬",
+  "color": "#3b82f6",
+  "description": "Physique, chimie, biologie et espace.",
+  "questions": [
+    {
+      "type": "qcm",
+      "question": "Quelle est la formule chimique de l'eau ?",
+      "choices": [
+        "CO₂",
+        "H₂O",
+        "O₂",
+        "H₂O₂"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quelle est la plus grande planète du système solaire ?",
+      "choices": [
+        "Saturne",
+        "Jupiter",
+        "Neptune",
+        "Uranus"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quelle est la vitesse approximative de la lumière ?",
+      "choices": [
+        "3 000 km/s",
+        "30 000 km/s",
+        "300 000 km/s",
+        "3 000 000 km/s"
+      ],
+      "answer": 2,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Qui a formulé la théorie de la relativité ?",
+      "choices": [
+        "Isaac Newton",
+        "Albert Einstein",
+        "Niels Bohr",
+        "Marie Curie"
+      ],
+      "answer": 1,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel gaz les plantes absorbent-elles pour la photosynthèse ?",
+      "choices": [
+        "L'oxygène",
+        "L'azote",
+        "Le dioxyde de carbone",
+        "L'hélium"
+      ],
+      "answer": 2,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Combien de chromosomes possède une cellule humaine (hors cellules reproductrices) ?",
+      "choices": [
+        "23",
+        "44",
+        "46",
+        "48"
+      ],
+      "answer": 2,
+      "difficulty": "moyen",
+      "explanation": "23 paires."
+    },
+    {
+      "type": "qcm",
+      "question": "Quel est le métal le plus abondant dans la croûte terrestre ?",
+      "choices": [
+        "Le fer",
+        "L'aluminium",
+        "Le cuivre",
+        "Le calcium"
+      ],
+      "answer": 1,
+      "difficulty": "difficile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel organe produit l'insuline ?",
+      "choices": [
+        "Le foie",
+        "Le pancréas",
+        "Les reins",
+        "La rate"
+      ],
+      "answer": 1,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Qui a découvert la pénicilline ?",
+      "choices": [
+        "Louis Pasteur",
+        "Alexander Fleming",
+        "Robert Koch",
+        "Edward Jenner"
+      ],
+      "answer": 1,
+      "difficulty": "moyen",
+      "explanation": "En 1928."
+    },
+    {
+      "type": "qcm",
+      "question": "Quelle est l'unité de la résistance électrique ?",
+      "choices": [
+        "Le volt",
+        "L'ampère",
+        "L'ohm",
+        "Le watt"
+      ],
+      "answer": 2,
+      "difficulty": "moyen"
+    },
+    {
+      "type": "qcm",
+      "question": "Quelle particule porte une charge électrique négative ?",
+      "choices": [
+        "Le proton",
+        "Le neutron",
+        "L'électron",
+        "Le photon"
+      ],
+      "answer": 2,
+      "difficulty": "facile"
+    },
+    {
+      "type": "qcm",
+      "question": "Quel scientifique a été le premier à recevoir deux prix Nobel ?",
+      "choices": [
+        "Albert Einstein",
+        "Marie Curie",
+        "Linus Pauling",
+        "Niels Bohr"
+      ],
+      "answer": 1,
+      "difficulty": "moyen",
+      "explanation": "Physique en 1903, chimie en 1911."
+    },
+    {
+      "type": "qcm",
+      "question": "Combien de temps met la lumière du Soleil pour atteindre la Terre ?",
+      "choices": [
+        "8 secondes",
+        "8 minutes",
+        "8 heures",
+        "8 jours"
+      ],
+      "answer": 1,
+      "difficulty": "moyen",
+      "explanation": "Environ 8 minutes et 20 secondes."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Le son se propage plus vite dans l'eau que dans l'air.",
+      "answer": true,
+      "difficulty": "moyen",
+      "explanation": "Environ 4 fois plus vite."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Les humains n'utilisent que 10 % de leur cerveau.",
+      "answer": false,
+      "difficulty": "facile",
+      "explanation": "Un mythe tenace : toutes les zones du cerveau sont utilisées."
+    },
+    {
+      "type": "vraifaux",
+      "question": "Vénus est la planète la plus chaude du système solaire.",
+      "answer": true,
+      "difficulty": "moyen",
+      "explanation": "Son épaisse atmosphère crée un effet de serre extrême (environ 460 °C)."
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la distance moyenne entre la Terre et la Lune ?",
+      "answer": 384400,
+      "difficulty": "moyen",
+      "unit": "km",
+      "tolerance": 0.4
+    },
+    {
+      "type": "estimation",
+      "question": "Quelle est la température à la surface du Soleil ?",
+      "answer": 5500,
+      "difficulty": "difficile",
+      "unit": "°C",
+      "tolerance": 0.5
+    },
+    {
+      "type": "ordre",
+      "question": "De la planète la plus proche du Soleil à la plus éloignée",
+      "items": [
+        "Mercure",
+        "Vénus",
+        "Mars",
+        "Jupiter",
+        "Neptune"
+      ],
+      "difficulty": "moyen"
+    },
+    {
+      "type": "ordre",
+      "question": "Du plus petit au plus grand",
+      "items": [
+        "Un atome",
+        "Un virus",
+        "Une bactérie",
+        "Un grain de sable"
+      ],
+      "difficulty": "difficile",
+      "details": [
+        "≈ 0,1 nm",
+        "≈ 100 nm",
+        "≈ 1 µm",
+        "≈ 0,5 mm"
+      ]
+    },
+    {
+      "type": "texte",
+      "question": "Quel est le symbole chimique du fer ?",
+      "answer": [
+        "Fe"
+      ],
+      "difficulty": "moyen",
+      "explanation": "Du latin ferrum."
+    },
+    {
+      "type": "texte",
+      "question": "Quelle est l'étoile la plus proche de la Terre ?",
+      "answer": [
+        "Soleil",
+        "Le Soleil"
+      ],
+      "difficulty": "facile",
+      "explanation": "Piège ! Après lui, c'est Proxima du Centaure."
+    }
+  ]
+}

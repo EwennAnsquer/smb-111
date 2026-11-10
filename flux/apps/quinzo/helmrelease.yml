@@ -20,6 +20,8 @@ spec:
     remediation:
       retries: 3
   values:
+    image:
+      tag: "1.0.1"
     ingress:
       enabled: true
       className: traefik
