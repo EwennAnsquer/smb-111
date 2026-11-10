@@ -27,3 +27,11 @@ spec:
       enabled: true
       className: traefik
       host: quinzo.smb-111.azby.fr
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+        traefik.ingress.kubernetes.io/router.middlewares: authelia-system-forwardauth-authelia@kubernetescrd
+      tls:
+        enabled: true
+        secretName: quinzo-tls
