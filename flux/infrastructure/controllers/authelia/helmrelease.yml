@@ -160,11 +160,15 @@ spec:
           - domain: 'longhorn.smb-111.azby.fr'
             policy: one_factor
             subject: 'group:admin'
-          - domain:
-              - 'quinzo.smb-111.azby.fr/host'
-              - 'quinzo.smb-111.azby.fr/editor'
+          - domain: 'quinzo.smb-111.azby.fr'
+            resources:
+              - '^/(?i:host|editor)([/?].*)?$'
             policy: one_factor
             subject: 'group:admin'
+          - domain: 'quinzo.smb-111.azby.fr'
+            resources:
+              - '^/(?i:host|editor)([/?].*)?$'
+            policy: deny
           - domain:
               - 'grafana.smb-111.azby.fr'
               - 'vmui.smb-111.azby.fr'
