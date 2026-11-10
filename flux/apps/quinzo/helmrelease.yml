@@ -21,6 +21,7 @@ spec:
       retries: 3
   values:
     image:
+      repository: azby/smb-111
       tag: "1.0.1"
     ingress:
       enabled: true
