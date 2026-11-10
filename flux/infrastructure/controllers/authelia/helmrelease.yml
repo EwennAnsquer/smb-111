@@ -178,3 +178,4 @@ spec:
             subject: 'group:admin'
           - domain: '*.smb-111.azby.fr'
             policy: one_factor
+            subject: 'group:admin'
