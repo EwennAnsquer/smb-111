@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "quinzo": {
+      "type": "object",
+      "properties": {
+        "publicUrl": { "type": "string", "pattern": "^$|^https?://[^\\s/]+$" },
+        "pin": { "type": "string", "pattern": "^$|^[0-9]{4,8}$" },
+        "maxPlayers": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "trustClientIp": { "type": "boolean" },
+        "adminKey": {
+          "type": "object",
+          "properties": {
+            "value": { "type": "string", "pattern": "^$|^[A-Za-z0-9_-]{8,}$" },
+            "existingSecret": { "type": "string" },
+            "existingSecretKey": { "type": "string", "minLength": 1 }
+          }
+        },
+        "extraEnv": { "type": "array" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "nodePort": { "type": ["integer", "null"], "minimum": 30000, "maximum": 32767 },
+        "loadBalancerIP": { "type": "string" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "host": { "type": "string" },
+        "tls": {
+          "type": "object",
+          "properties": { "enabled": { "type": "boolean" }, "secretName": { "type": "string" } }
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "accessMode": { "enum": ["ReadWriteOnce", "ReadWriteOncePod", "ReadWriteMany"] },
+        "size": { "type": "string" }
+      }
+    }
+  }
+}
+
