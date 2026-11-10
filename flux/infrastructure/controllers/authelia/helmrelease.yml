@@ -169,6 +169,8 @@ spec:
             resources:
               - '^/(?i:host|editor)([/?].*)?$'
             policy: deny
+          - domain: 'quinzo.smb-111.azby.fr'
+            policy: one_factor
           - domain:
               - 'grafana.smb-111.azby.fr'
               - 'vmui.smb-111.azby.fr'
