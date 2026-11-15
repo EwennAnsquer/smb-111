@@ -13,8 +13,9 @@ spec:
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
+  # smb-111.azby.fr est déjà couvert par *.azby.fr : Let's Encrypt refuse un nom
+  # redondant avec un wildcard de la même requête.
   dnsNames:
     - "azby.fr"
     - "*.azby.fr"
-    - "smb-111.azby.fr"
     - "*.smb-111.azby.fr"
