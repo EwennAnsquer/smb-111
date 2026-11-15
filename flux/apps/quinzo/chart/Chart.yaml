@@ -1,9 +1,12 @@
 apiVersion: v2
 name: quinzo
-description: Quinzo — quiz multijoueur (écran hôte + joueurs), plusieurs réplicas avec état partagé dans Redis
+# Publié avec l'image 1.0.1 : mode une instance (état en mémoire, pas de Redis).
+# Le chart sait déjà tourner en multi-réplicas avec Redis : repasser replicaCount
+# et redis.enabled quand l'image 1.1.0 sera publiée (voir README, étape 4).
+description: Quinzo — quiz multijoueur (écran hôte + joueurs), une instance avec état local
 type: application
-version: 0.2.0
-appVersion: "1.1.0"
+version: 0.2.1
+appVersion: "1.0.1"
 keywords:
   - quiz
   - game

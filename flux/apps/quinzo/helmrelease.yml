@@ -22,7 +22,9 @@ spec:
   values:
     image:
       repository: azby/smb-111
-      tag: "1.0.1"
+      # tag vide = appVersion du chart (1.0.1)
+      # Digest de l'index OCI 1.0.1 (Docker Hub) : reproductibilité, immunisé aux retags.
+      digest: sha256:f6ba4574b0525a862bab90cbf5a66958c60b1250949e74609b5dc83ec0136e8d
     ingress:
       enabled: true
       className: traefik

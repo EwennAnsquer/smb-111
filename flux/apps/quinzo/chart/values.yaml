@@ -1,19 +1,21 @@
 # Valeurs par défaut du chart Quinzo.
 #
-# Avec Redis (intégré ou externe), Quinzo tourne sur plusieurs réplicas :
-#  - l'état de la partie, les sessions admin et les thèmes sont dans Redis ;
-#  - Socket.IO relaie les messages entre réplicas (adaptateur Redis) ;
-#  - un réplica « leader » élu dans Redis gère les échéances (fin du chrono…), relève automatique ;
-#  - sessions collantes (sticky) pour que chaque navigateur reste sur le même pod.
-# Sans Redis (redis.enabled=false et pas d'externalRedis), une seule réplique est possible.
+# L'image publiée est la 1.0.1 : application mono-instance, état de la partie,
+# sessions admin et thèmes en mémoire, persistés sur un volume (DATA_DIR=/data).
+# Aucune fonction multi-réplicas (Redis, adaptateur Socket.IO, leader election)
+# n'est disponible dans cette version : d'où replicaCount=1, redis.enabled=false
+# et sticky.enabled=false. Voir README (étape 4) pour basculer sur la 1.1.0.
 
-replicaCount: 2
+replicaCount: 1
 
 image:
   # Image construite depuis le Dockerfile du projet, puis poussée dans ton registre.
-  repository: quinzo
+  repository: azby/smb-111
   # Vide = appVersion du chart
   tag: ""
+  # Digest de l'image (reproductibilité). Vide = pas de pinning.
+  # ex. sha256:f6ba4574b0525a862bab90cbf5a66958c60b1250949e74609b5dc83ec0136e8d
+  digest: ""
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -48,8 +50,9 @@ admin:
   passwordKey: admin-password
 
 # Redis intégré (image Valkey, compatible Redis, licence BSD)
+# Désactivé : l'image 1.0.1 ne sait pas s'y connecter. À réactiver avec la 1.1.0.
 redis:
-  enabled: true
+  enabled: false
   image:
     repository: valkey/valkey
     tag: "8.1-alpine"
@@ -89,8 +92,9 @@ externalRedis:
 
 # Sessions collantes : un navigateur reste sur le même pod (requis par le long-polling Socket.IO).
 # Ajoute les annotations ingress-nginx (Ingress) et Traefik (Service), et sessionAffinity ClientIP.
+# Inutile avec une seule instance (1.0.1) ; à réactiver avec la 1.1.0.
 sticky:
-  enabled: true
+  enabled: false
   cookieName: quinzo_sticky
   maxAgeSeconds: 43200
 
@@ -112,7 +116,7 @@ ingress:
     enabled: false
     secretName: ""
 
-# Utilisé seulement sans Redis (une réplique) : stocke thèmes et identifiants admin.
+# Utilisé par l'image 1.0.1 (mono-instance, sans Redis) : stocke thèmes et identifiants admin.
 persistence:
   enabled: true
   existingClaim: ""
@@ -121,7 +125,8 @@ persistence:
   size: 1Gi
 
 podDisruptionBudget:
-  enabled: true
+  # Désactivé : minAvailable=1 avec une seule réplique bloquerait tout drain de nœud.
+  enabled: false
   minAvailable: 1
 
 # Répartit les réplicas sur des nœuds différents quand c'est possible
