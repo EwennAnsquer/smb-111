@@ -177,6 +177,16 @@ kubectl get certificate -A
 
 Le certificat d'un service n'est créé que si son `Ingress` porte l'annotation `cert-manager.io/cluster-issuer` **et** un bloc `spec.tls` avec un `secretName` (voir la section Dépannage).
 
+Un certificat wildcard de repli est également émis dans `traefik-system` et servi par défaut par Traefik pour tout nom non couvert par un `Ingress` :
+```bash
+kubectl get certificate -n traefik-system
+kubectl get secret wildcard-azby-fr-tls -n traefik-system
+```
+Si ce Secret a déjà existé dans le namespace `default` (ancien emplacement), le supprimer une seule fois : Flux ne nettoie pas les Secrets créés par cert-manager.
+```bash
+kubectl delete secret wildcard-azby-fr-tls -n default --ignore-not-found
+```
+
 ### Lancer K9s
 Pour administrer votre cluster avec k9s :
 ```bash

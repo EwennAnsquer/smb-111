@@ -1,9 +1,13 @@
 ---
+# Certificat de repli de Traefik : le Secret doit être créé dans traefik-system,
+# car un TLSStore ne peut référencer qu'un Secret de son propre namespace.
+# Ancien Secret à supprimer une fois la bascule faite :
+#   kubectl delete secret wildcard-azby-fr-tls -n default
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: wildcard-azby-fr
-  namespace: default
+  namespace: traefik-system
 spec:
   secretName: wildcard-azby-fr-tls
   issuerRef:
@@ -12,5 +16,5 @@ spec:
   dnsNames:
     - "azby.fr"
     - "*.azby.fr"
+    - "smb-111.azby.fr"
     - "*.smb-111.azby.fr"
-
