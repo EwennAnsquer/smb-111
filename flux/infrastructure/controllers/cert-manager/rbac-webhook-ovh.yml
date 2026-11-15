@@ -1,4 +1,13 @@
 ---
+# RBAC manuel : le chart cert-manager-webhook-ovh ne génère son propre Role de
+# lecture des secrets que si des `issuers` sont déclarés dans ses values. Ici le
+# ClusterIssuer est géré dans infra-configs (configs/cert-manager), donc ce Role
+# reste nécessaire pour les challenges DNS-01.
+#
+# Attention au nom du ServiceAccount : Flux nomme la release Helm
+# `[targetNamespace-]Name`, soit ici `cert-manager-system-cert-manager-webhook-ovh`
+# (voir le champ releaseName du CRD HelmRelease). C'est ce nom qui doit figurer
+# comme sujet, et non le nom du chart (`cert-manager-webhook-ovh`).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
