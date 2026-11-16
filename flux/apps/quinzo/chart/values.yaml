@@ -63,9 +63,11 @@ redis:
   # Vide = généré et conservé lors des mises à jour
   password: ""
   persistence:
-    # Conserve partie en cours, thèmes et identifiants si le pod Redis redémarre
+    # Conserve partie en cours, thèmes et identifiants si le pod Redis redémarre.
+    # Volume Longhorn répliqué (x2) et sauvegardé par le RecurringJob daily-backup.
+    # Le champ storageClassName du PVC est immuable : un PVC existant doit être recréé.
     enabled: true
-    storageClass: ""
+    storageClass: "longhorn"
     size: 1Gi
   resources:
     requests:

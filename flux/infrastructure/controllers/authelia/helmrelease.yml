@@ -43,10 +43,16 @@ spec:
         limits:
           memory: 512Mi         # argon2 est gourmand en mémoire au login
 
-    # SQLite + notifications sur un PVC (StorageClass par défaut de k3s : local-path)
+    # SQLite + notifications sur un PVC Longhorn répliqué (x2) et sauvegardé par
+    # le RecurringJob daily-backup (groupe default).
+    # Attention : le champ storageClassName du PVC est immuable ; un PVC existant
+    # créé en local-path doit être supprimé puis recréé (perte de la base SQLite).
     persistence:
       enabled: true
       size: 1Gi
+      storageClass: longhorn
+      accessModes:
+        - ReadWriteOnce
 
     # Secrets : on utilise un Secret existant (secret.yml) plutôt que de laisser
     # le chart en générer, pour que les clés soient stables et gérées via GitOps.

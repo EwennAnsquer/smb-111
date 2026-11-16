@@ -28,4 +28,7 @@ spec:
       deletingConfirmationFlag: true
       removeSnapshotsDuringFilesystemTrim: true
     persistence:
+      # Longhorn ne doit PAS être la classe par défaut : chaque PVC explicite sa
+      # classe (local-path reste le défaut de k3s). Le chart met true par défaut.
+      defaultClass: false
       defaultClassReplicaCount: 2
