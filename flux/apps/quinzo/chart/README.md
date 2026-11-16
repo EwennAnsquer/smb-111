@@ -129,6 +129,7 @@ Sans Redis (`redis.enabled=false` et pas d'`externalRedis`), le chart repasse en
   - sessions partagées par tous les pods via Redis ;
   - cookie `HttpOnly`, `SameSite=Strict`, et `Secure` en HTTPS ;
   - en-tête anti-CSRF obligatoire et vérification de l'origine des WebSockets.
+- Démarrage ordonné : un initContainer `wait-for-redis` attend que Redis réponde (TCP) avant de lancer l'app, qui sinon sort en erreur et se fait redémarrer pendant l'amorçage de Redis.
 - Mise à jour sans coupure : `RollingUpdate` (`maxUnavailable: 0`). À l'arrêt, un pod rend son bail de leader et ferme ses connexions ; les clients se reconnectent aussitôt sur un autre pod.
 
 ## Mise à jour depuis la version 0.1.0 du chart

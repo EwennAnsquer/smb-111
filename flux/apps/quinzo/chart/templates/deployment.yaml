@@ -49,6 +49,34 @@ spec:
       terminationGracePeriodSeconds: 30
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if $multi }}
+      # L'appli sort en erreur si Redis n'est pas joignable au démarrage : on attend
+      # qu'il accepte les connexions TCP avant de la lancer, plutôt que de la redémarrer.
+      initContainers:
+        - name: wait-for-redis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{ with .Values.image.digest }}@{{ . }}{{ end }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              until node -e 'const u = new URL(process.env.REDIS_URL); const s = require("net").connect({ host: u.hostname, port: Number(u.port || 6379) }); s.setTimeout(2000); s.on("connect", () => { s.destroy(); process.exit(0); }); s.on("timeout", () => { s.destroy(); process.exit(1); }); s.on("error", () => process.exit(1));'; do
+                echo "En attente de Redis…";
+                sleep 2;
+              done
+              echo "Redis joignable."
+          env:
+            {{- with (include "quinzo.redisEnv" . | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+      {{- end }}
       containers:
         - name: quinzo
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{ with .Values.image.digest }}@{{ . }}{{ end }}"
@@ -102,31 +130,9 @@ spec:
                   key: {{ if .Values.admin.existingSecret }}{{ .Values.admin.passwordKey }}{{ else }}admin-password{{ end }}
             {{- end }}
             {{- end }}
+            {{- with (include "quinzo.redisEnv" . | trim) }}
             # --- Redis (état partagé entre réplicas) ---
-            {{- if .Values.redis.enabled }}
-            - name: REDIS_URL
-              value: "redis://{{ include "quinzo.redisName" . }}:6379/0"
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "quinzo.fullname" . }}
-                  key: redis-password
-            {{- else if .Values.externalRedis.url }}
-            - name: REDIS_URL
-              value: {{ .Values.externalRedis.url | quote }}
-            {{- if .Values.externalRedis.existingSecret }}
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalRedis.existingSecret }}
-                  key: {{ .Values.externalRedis.existingSecretPasswordKey }}
-            {{- else if .Values.externalRedis.password }}
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "quinzo.fullname" . }}
-                  key: redis-password
-            {{- end }}
+            {{- . | nindent 12 }}
             {{- end }}
             {{- with .Values.quinzo.extraEnv }}
             {{- toYaml . | nindent 12 }}

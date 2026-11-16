@@ -59,6 +59,38 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if or .Values.redis.enabled .Values.externalRedis.url }}true{{ end }}
 {{- end }}
 
+{{/*
+Variables d'environnement Redis, communes au conteneur applicatif et à l'initContainer
+qui attend que Redis réponde. Ne rend rien en mode mono-instance.
+*/}}
+{{- define "quinzo.redisEnv" -}}
+{{- if .Values.redis.enabled }}
+- name: REDIS_URL
+  value: "redis://{{ include "quinzo.redisName" . }}:6379/0"
+- name: REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "quinzo.fullname" . }}
+      key: redis-password
+{{- else if .Values.externalRedis.url }}
+- name: REDIS_URL
+  value: {{ .Values.externalRedis.url | quote }}
+{{- if .Values.externalRedis.existingSecret }}
+- name: REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.externalRedis.existingSecret }}
+      key: {{ .Values.externalRedis.existingSecretPasswordKey }}
+{{- else if .Values.externalRedis.password }}
+- name: REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "quinzo.fullname" . }}
+      key: redis-password
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- define "quinzo.trustProxy" -}}
 {{- if eq (toString .Values.quinzo.trustProxy) "auto" }}{{ ternary "1" "0" .Values.ingress.enabled }}{{ else }}{{ ternary "1" "0" (eq (toString .Values.quinzo.trustProxy) "true") }}{{ end }}
 {{- end }}
