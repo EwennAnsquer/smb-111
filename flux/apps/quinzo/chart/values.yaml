@@ -1,12 +1,14 @@
 # Valeurs par défaut du chart Quinzo.
 #
-# L'image publiée est la 1.0.1 : application mono-instance, état de la partie,
-# sessions admin et thèmes en mémoire, persistés sur un volume (DATA_DIR=/data).
-# Aucune fonction multi-réplicas (Redis, adaptateur Socket.IO, leader election)
-# n'est disponible dans cette version : d'où replicaCount=1, redis.enabled=false
-# et sticky.enabled=false. Voir README (étape 4) pour basculer sur la 1.1.0.
+# Avec Redis (intégré ou externe), Quinzo tourne sur plusieurs réplicas :
+#  - l'état de la partie, les sessions admin et les thèmes sont dans Redis ;
+#  - Socket.IO relaie les messages entre réplicas (adaptateur Redis) ;
+#  - un réplica « leader » élu dans Redis gère les échéances (fin du chrono…), relève automatique ;
+#  - sessions collantes (sticky) pour que chaque navigateur reste sur le même pod.
+# Sans Redis (redis.enabled=false et pas d'externalRedis), une seule réplique est possible.
+# L'image 1.0.1 déployée embarque déjà ces fonctions (ioredis, adaptateur Redis, leader).
 
-replicaCount: 1
+replicaCount: 2
 
 image:
   # Image construite depuis le Dockerfile du projet, puis poussée dans ton registre.
@@ -50,9 +52,8 @@ admin:
   passwordKey: admin-password
 
 # Redis intégré (image Valkey, compatible Redis, licence BSD)
-# Désactivé : l'image 1.0.1 ne sait pas s'y connecter. À réactiver avec la 1.1.0.
 redis:
-  enabled: false
+  enabled: true
   image:
     repository: valkey/valkey
     tag: "8.1-alpine"
@@ -92,9 +93,8 @@ externalRedis:
 
 # Sessions collantes : un navigateur reste sur le même pod (requis par le long-polling Socket.IO).
 # Ajoute les annotations ingress-nginx (Ingress) et Traefik (Service), et sessionAffinity ClientIP.
-# Inutile avec une seule instance (1.0.1) ; à réactiver avec la 1.1.0.
 sticky:
-  enabled: false
+  enabled: true
   cookieName: quinzo_sticky
   maxAgeSeconds: 43200
 
@@ -116,7 +116,7 @@ ingress:
     enabled: false
     secretName: ""
 
-# Utilisé par l'image 1.0.1 (mono-instance, sans Redis) : stocke thèmes et identifiants admin.
+# Utilisé seulement sans Redis (une réplique) : stocke thèmes et identifiants admin.
 persistence:
   enabled: true
   existingClaim: ""
@@ -125,8 +125,7 @@ persistence:
   size: 1Gi
 
 podDisruptionBudget:
-  # Désactivé : minAvailable=1 avec une seule réplique bloquerait tout drain de nœud.
-  enabled: false
+  enabled: true
   minAvailable: 1
 
 # Répartit les réplicas sur des nœuds différents quand c'est possible
