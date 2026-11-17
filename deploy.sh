@@ -2,13 +2,47 @@
 
 set -euo pipefail
 
-PROJECT_DIR=$(pwd)
+PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+cd "$PROJECT_DIR" || exit 1
 
 # Clé age utilisée par SOPS (Terraform, Ansible et secret sops-age de Flux)
 export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
 
 if [ ! -f "$SOPS_AGE_KEY_FILE" ]; then
   echo "Erreur : clé age introuvable ($SOPS_AGE_KEY_FILE)."
+  exit 1
+fi
+
+# Options du script
+ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
+ASSUME_YES="${ASSUME_YES:-0}"
+FRESH_INSTALL="${FRESH_INSTALL:-0}"
+SSH_WAIT_TIMEOUT="${SSH_WAIT_TIMEOUT:-300}"
+
+# FRESH_CLUSTER est l'ancien nom, conservé comme alias déprécié
+if [ -n "${FRESH_CLUSTER:-}" ]; then
+  echo "Avertissement : FRESH_CLUSTER est déprécié, utilisez FRESH_INSTALL."
+  if [ "$FRESH_INSTALL" != "1" ]; then
+    FRESH_INSTALL="$FRESH_CLUSTER"
+  fi
+fi
+
+case "$FRESH_INSTALL" in
+  0 | 1) ;;
+  *)
+    echo "Erreur : FRESH_INSTALL doit valoir 0 ou 1 (reçu : $FRESH_INSTALL)."
+    exit 1
+    ;;
+esac
+
+case "$SSH_WAIT_TIMEOUT" in
+  '' | *[!0-9]*)
+    echo "Erreur : SSH_WAIT_TIMEOUT doit être un nombre de secondes (reçu : $SSH_WAIT_TIMEOUT)."
+    exit 1
+    ;;
+esac
+if [ "$SSH_WAIT_TIMEOUT" -le 0 ]; then
+  echo "Erreur : SSH_WAIT_TIMEOUT doit être supérieur à 0."
   exit 1
 fi
 
@@ -20,46 +54,99 @@ trap 'rm -f "$TMP_VARS" "$TMP_ANSIBLE_VARS"' EXIT
 # 0. Flux synchronise depuis GitHub : tout doit être poussé avant le bootstrap
 echo -e "Vérification que le dépôt est synchronisé avec GitHub..."
 git -C "$PROJECT_DIR" fetch origin
+
 if [ -n "$(git -C "$PROJECT_DIR" status --porcelain)" ]; then
-  echo "Attention : des modifications locales ne sont pas commitées."
+  if [ "$ALLOW_DIRTY" != "1" ]; then
+    echo "Erreur : l'arbre Git n'est pas propre."
+    echo "Flux déploie depuis GitHub : les modifications locales ne seront jamais appliquées."
+    echo "Commitez et poussez vos changements, ou relancez avec ALLOW_DIRTY=1."
+    exit 1
+  fi
+  echo "Avertissement : ALLOW_DIRTY=1, les modifications locales ne seront pas déployées par Flux."
 fi
-if [ "$(git -C "$PROJECT_DIR" rev-parse HEAD)" != "$(git -C "$PROJECT_DIR" rev-parse '@{u}')" ]; then
+
+if ! UPSTREAM=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
+  echo "Erreur : la branche courante n'a pas de branche upstream (git push -u origin <branche>)."
+  exit 1
+fi
+if [ "$(git -C "$PROJECT_DIR" rev-parse HEAD)" != "$(git -C "$PROJECT_DIR" rev-parse "$UPSTREAM")" ]; then
   echo "Erreur : la branche locale n'est pas synchronisée avec origin (git push / git pull)."
   exit 1
 fi
 
+# 0 bis. Mode fresh : supprimer les gotk-* pour forcer un nouveau bootstrap Flux
+if [ "$FRESH_INSTALL" = "1" ]; then
+  FLUX_PATH="$PROJECT_DIR/flux/clusters/prod" # doit correspondre à target_path dans group_vars/all.yml
+  KUBECONFIG_LOCAL="${KUBECONFIG:-$HOME/.kube/config-k3s}"
+
+  echo -e "\nMode FRESH_INSTALL : préparation d'un nouveau bootstrap Flux."
+  echo "Ce mode ne détruit ni les VMs, ni les volumes Longhorn, ni les données."
+  echo "Il suppose que le cluster a déjà été détruit (terraform destroy)."
+
+  # Sécurité : ne pas retirer les manifests d'un Flux encore actif (Flux les supprimerait)
+  if command -v kubectl >/dev/null 2>&1 && [ -f "$KUBECONFIG_LOCAL" ]; then
+    if kubectl --kubeconfig "$KUBECONFIG_LOCAL" --request-timeout=5s \
+      -n flux-system get deploy source-controller >/dev/null 2>&1; then
+      echo "Erreur : Flux est encore actif sur le cluster ($KUBECONFIG_LOCAL)."
+      echo "Détruisez d'abord le cluster (terraform destroy) avant d'utiliser FRESH_INSTALL=1."
+      exit 1
+    fi
+  fi
+
+  if [ "$ASSUME_YES" != "1" ]; then
+    if ! read -r -p "Confirmer la suppression des gotk-* et le nouveau bootstrap Flux ? [oui/N] " answer; then
+      echo -e "\nConfirmation impossible : utilisez ASSUME_YES=1 pour une exécution non interactive."
+      exit 1
+    fi
+    case "$answer" in
+      oui | OUI | Oui) ;;
+      *)
+        echo "Annulé."
+        exit 1
+        ;;
+    esac
+  fi
+
+  if compgen -G "$FLUX_PATH/gotk-*.yaml" >/dev/null; then
+    echo "Suppression des anciens gotk-* avant le bootstrap..."
+    git -C "$PROJECT_DIR" rm -q "$FLUX_PATH"/gotk-*.yaml
+    git -C "$PROJECT_DIR" commit -qm "Flux: supprimer les manifests gotk-* avant un bootstrap neuf"
+    git -C "$PROJECT_DIR" push
+  else
+    echo "Aucun manifest gotk-* à supprimer."
+  fi
+fi
+
 # 1. Déploiement Terraform
-cd "$PROJECT_DIR/terraform"
+cd "$PROJECT_DIR/terraform" || exit 1
 terraform init
 
 sops -d secrets.enc.tfvars.json >"$TMP_VARS"
 terraform apply -var-file="$TMP_VARS" -auto-approve
 
 # On se place dans le dossier ansible en avance pour avoir accès à inventory.ini
-cd "$PROJECT_DIR/ansible"
+cd "$PROJECT_DIR/ansible" || exit 1
 
 echo -e "\nRécupération dynamique des adresses IP depuis l'inventaire Ansible..."
 # Extraction des IPs : on cherche "ansible_host=", on coupe la ligne et on garde juste l'IP
 mapfile -t NODES < <(awk -F'ansible_host=' '/ansible_host=/ {split($2, a, " "); print a[1]}' inventory.ini)
 
-if [ ${#NODES[@]} -eq 0 ]; then
+if [ "${#NODES[@]}" -eq 0 ]; then
   echo "Erreur : Aucune adresse IP trouvée dans inventory.ini."
   exit 1
 fi
 
-echo -e "\nIPs trouvées : ${NODES[*]}"
-echo -e "Attente de l'ouverture du port SSH sur toutes les VMs..."
+echo "IPs trouvées : ${NODES[*]}"
 
-# 2. Boucle dynamique d'attente SSH
-for ip in "${NODES[@]}"; do
-  until nc -z -w 2 "$ip" 22 &>/dev/null; do
-    echo "En attente du service SSH sur $ip..."
-    sleep 3
-  done
-  echo "Port SSH disponible sur $ip !"
-done
+# 2. Vérification des collections Ansible requises par le playbook
+echo -e "\nVérification des collections Ansible (community.general, community.sops)..."
+ansible-galaxy collection install -r requirements.yml
 
-# 3. Lancement d'Ansible
+# 3. Attente SSH avec timeout par hôte
+echo -e "\nAttente de l'ouverture du port SSH (timeout ${SSH_WAIT_TIMEOUT}s par hôte)..."
+ansible-playbook -i inventory.ini preflight.yml -e "ssh_wait_timeout=${SSH_WAIT_TIMEOUT}"
+
+# 4. Lancement d'Ansible
 echo -e "\nPréparation des variables Ansible (secrets SOPS + clé age pour Flux)..."
 sops -d group_vars/secrets.enc.yml >"$TMP_ANSIBLE_VARS"
 
@@ -69,25 +156,15 @@ sops -d group_vars/secrets.enc.yml >"$TMP_ANSIBLE_VARS"
   sed 's/^/  /' "$SOPS_AGE_KEY_FILE"
 } >>"$TMP_ANSIBLE_VARS"
 
-if [ "${FRESH_INSTALL:-0}" = "1" ]; then
-  FLUX_PATH="$PROJECT_DIR/flux/clusters/prod"
-  if ls "$FLUX_PATH"/gotk-*.yaml >/dev/null 2>&1; then
-    echo "Réinstallation : suppression des anciens gotk-* avant le bootstrap..."
-    git -C "$PROJECT_DIR" rm -q "$FLUX_PATH"/gotk-*.yaml
-    git -C "$PROJECT_DIR" commit -qm "Reset flux files before fresh bootstrap"
-    git -C "$PROJECT_DIR" push
-  fi
-fi
-
 echo -e "\nLancement du playbook Ansible..."
 ansible-playbook -i inventory.ini playbook.yml -e @"$TMP_ANSIBLE_VARS"
 
-# 4. Le bootstrap Flux a commité gotk-components.yaml et gotk-sync.yaml sur GitHub
+# 5. Le bootstrap Flux a commité gotk-components.yaml et gotk-sync.yaml sur GitHub
 echo -e "\nMise à jour du dépôt local (fichiers gotk-* générés par Flux)..."
 git -C "$PROJECT_DIR" pull --ff-only
 
-# 5. Aplatir : sortir les fichiers gotk-* du sous-dossier flux-system/
-FLUX_PATH="$PROJECT_DIR/flux/clusters/prod" # doit correspondre à target_path dans vars/all.yml
+# 6. Aplatir : sortir les fichiers gotk-* du sous-dossier flux-system/
+FLUX_PATH="$PROJECT_DIR/flux/clusters/prod" # doit correspondre à target_path dans group_vars/all.yml
 
 if [ -d "$FLUX_PATH/flux-system" ]; then
   echo -e "\nAplatissement du dossier flux-system..."

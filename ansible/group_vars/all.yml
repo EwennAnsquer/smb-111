@@ -1,4 +1,4 @@
-# ansible/vars/all.yml
+# ansible/group_vars/all.yml
 ---
 # --- GitHub / Flux ---
 github_user: "EwennAnsquer"
@@ -21,7 +21,7 @@ vip_interface: "eth0"
 local_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
 
 # --- Secrets ---
-# github_token : dans vars/secrets.enc.yml (chiffré SOPS)
+# github_token : dans group_vars/secrets.enc.yml (chiffré SOPS)
 #   github_token: "ghp_..."
 # sops_age_key : injecté automatiquement par deploy.sh depuis
 #   ~/.config/sops/age/keys.txt (rien à stocker dans le dépôt)

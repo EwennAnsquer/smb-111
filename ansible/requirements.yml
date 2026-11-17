@@ -1,0 +1,5 @@
+---
+# Collections requises par le playbook (ufw, plugin de vars SOPS)
+collections:
+  - name: community.general
+  - name: community.sops

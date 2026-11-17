@@ -41,6 +41,7 @@ Avant de commencer, assurez-vous d'avoir installé les outils suivants sur votre
 - **[Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview)** : Hyperviseur cible (accès réseau et compte administrateur requis).
 - **[Terraform](https://www.terraform.io/)** (>= 1.0) : Pour le provisioning des VMs.
 - **[Ansible](https://www.ansible.com/)** : Pour le déploiement et l'automatisation du cluster.
+- **Collections Ansible** : `community.general` (ufw) et `community.sops` (déchiffrement des variables), installées par `deploy.sh` depuis `ansible/requirements.yml` (accès réseau requis si elles sont absentes).
 - **[K3s](https://k3s.io/)** : Distribution Kubernetes légère.
 - **[kubectl](https://kubernetes.io/docs/tasks/tools/)** : CLI officielle de Kubernetes.
 - **[k9s](https://k9scli.io/)** : Interface TUI pour gérer le cluster.
@@ -113,20 +114,22 @@ Tous les secrets sont versionnés directement dans le dépôt sous forme chiffr�
 
 ### Fichiers de secrets du projet :
 - **Terraform :** `terraform/secrets.enc.tfvars.json` (Contient le token API Proxmox et les accès).
-- **Ansible :** `ansible/vars/secrets.enc.yml` (Contient le token GitHub pour FluxCD).
+- **Ansible :** `ansible/group_vars/secrets.enc.yml` (Contient le token GitHub pour FluxCD).
 - **Kubernetes / Flux :** Les secrets Kubernetes (identifiants OVH pour cert-manager, secrets Authelia, etc.) sont chiffrés avec SOPS dans le répertoire `flux/` et déchiffrés par Flux au moment de l'application.
 
 Si vous devez modifier un fichier de secrets chiffré, utilisez SOPS :
 ```bash
 sops terraform/secrets.enc.tfvars.json
-sops ansible/vars/secrets.enc.yml
+sops ansible/group_vars/secrets.enc.yml
 ```
 
 ---
 
 ## 🚀 ÉTAPE 5 : Déploiement
 
-Le script `deploy.sh` s'occupe de déchiffrer temporairement les secrets nécessaires en mémoire, de provisionner les VMs Proxmox via Terraform, d'attendre la disponibilité du SSH, puis de déployer K3s et FluxCD via Ansible.
+Le script `deploy.sh` vérifie que l'arbre Git est propre et synchronisé avec GitHub, déchiffre temporairement les secrets dans des fichiers supprimés à la fin de l'exécution, provisionne les VMs Proxmox via Terraform, vérifie les collections Ansible, attend la disponibilité du SSH, puis déploie K3s et FluxCD via Ansible.
+
+Flux déploie depuis GitHub : si l'arbre Git contient des modifications non poussées, le script s'arrête. Commitez et poussez vos changements, ou relancez avec `ALLOW_DIRTY=1` en sachant que ces changements locaux ne seront **pas** appliqués par Flux.
 
 ### Déploiement standard
 ```bash
@@ -136,13 +139,32 @@ chmod +x deploy.sh
 
 ### Installation neuve du cluster (fresh install)
 
-Pour repartir d'un cluster vierge, lancez le script avec la variable `FRESH_CLUSTER=1` :
+`FRESH_INSTALL=1` prépare un nouveau bootstrap Flux : le script supprime `flux/clusters/prod/gotk-*.yaml`, commit et pousse la suppression, puis Ansible réinstalle Flux. Une confirmation interactive est demandée ; `ASSUME_YES=1` la désactive (usage non interactif uniquement).
+
+Ce mode **ne détruit pas le cluster** : il ne supprime ni les VMs, ni les volumes Longhorn, ni les données. Pour repartir réellement de zéro, détruisez d'abord l'infrastructure, puis lancez le déploiement :
 
 ```bash
-FRESH_CLUSTER=1 ./deploy.sh
+SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt \
+  sops -d terraform/secrets.enc.tfvars.json > /tmp/secrets.tfvars.json
+terraform -chdir=terraform init
+terraform -chdir=terraform destroy -var-file=/tmp/secrets.tfvars.json
+rm -f /tmp/secrets.tfvars.json
+
+FRESH_INSTALL=1 ./deploy.sh
 ```
 
-> ⚠️ **Attention** : une réinstallation complète efface l'état du cluster, y compris les volumes Longhorn et les données qu'ils contiennent (Loki, Grafana, base SQLite d'Authelia…). À n'utiliser que si vous acceptez de tout perdre.
+> ⚠️ **Attention** : `terraform destroy` supprime les VMs et donc les volumes Longhorn et les données qu'ils contiennent (Loki, Grafana, base SQLite d'Authelia…). À n'utiliser que si vous acceptez de tout perdre.
+
+Le script vérifie aussi que Flux n'est plus actif sur le cluster avant de retirer les `gotk-*` ; sinon il s'arrête pour éviter que Flux ne supprime ses propres manifests. `FRESH_CLUSTER=1` reste accepté comme alias déprécié de `FRESH_INSTALL`.
+
+Paramètres utiles :
+
+| Variable | Défaut | Effet |
+|---|---|---|
+| `FRESH_INSTALL` | `0` | Supprime les `gotk-*` et force un nouveau bootstrap Flux (confirmation demandée). |
+| `ALLOW_DIRTY` | `0` | Autorise un arbre Git sale ; les changements locaux ne seront pas déployés par Flux. |
+| `ASSUME_YES` | `0` | Désactive la confirmation du mode fresh. |
+| `SSH_WAIT_TIMEOUT` | `300` | Délai d'attente SSH en secondes, par hôte. |
 
 ### Suivre le déploiement Flux
 
