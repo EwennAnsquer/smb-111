@@ -53,3 +53,16 @@
   when: inventory_hostname != groups['masters'][0]
   no_log: true
 
+- name: Vérifier les permissions du kubeconfig administrateur
+  ansible.builtin.stat:
+    path: /etc/rancher/k3s/k3s.yaml
+  register: k3s_admin_kubeconfig
+
+- name: Échouer si le kubeconfig administrateur est lisible par d'autres
+  ansible.builtin.assert:
+    that:
+      - k3s_admin_kubeconfig.stat.mode == '0600'
+    fail_msg: >-
+      /etc/rancher/k3s/k3s.yaml est en {{ k3s_admin_kubeconfig.stat.mode }},
+      attendu 0600 (write-kubeconfig-mode).
+

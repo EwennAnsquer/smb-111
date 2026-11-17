@@ -1,4 +1,6 @@
-write-kubeconfig-mode: "0644"
+# Kubeconfig administrateur lisible uniquement par root (jamais par les
+# utilisateurs locaux des VM).
+write-kubeconfig-mode: "0600"
 etcd-expose-metrics: {{ k3s_server_etcd_expose_metrics | lower }}
 disable:
 {% for component in k3s_server_disabled_components %}

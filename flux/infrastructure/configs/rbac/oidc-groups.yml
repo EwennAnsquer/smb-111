@@ -1,17 +1,62 @@
 ---
-# Groupe lldap "admin" -> administrateur complet du cluster
+# Droits des groupes lldap transmis par OIDC.
+#
+# Le groupe "admin" reçoit platform-admin. Un ClusterRoleBinding ne sait pas
+# restreindre un rôle aux seules ressources namespaced : ce rôle couvre donc
+# aussi les ressources cluster-scoped.
+#
+# DÉCISION ASSUMÉE (tâche 07) : les 5 administrateurs actuels conservent
+# cluster-admin via des sujets nominatifs. Cible à terme : n'en garder qu'un
+# ou deux et laisser les autres sur platform-admin.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: platform-admin
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+# Groupe lldap "admin" -> rôle plateforme (et non cluster-admin)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: oidc-admin
+  name: oidc-platform-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: platform-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: "oidc:admin"
+---
+# Cluster-admin conservé pour les 5 comptes d'administration nominatifs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oidc-cluster-admin
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 subjects:
+  # preferred_username OIDC (partie locale de l'e-mail), pas l'id lldap.
   - apiGroup: rbac.authorization.k8s.io
-    kind: Group
-    name: "oidc:admin"
+    kind: User
+    name: "oidc:ewennansquer"
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "oidc:bastiennizan"
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "oidc:luciechartreau"
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "oidc:mathieucaudan"
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "oidc:ryangourdon"
 ---
 # Groupe lldap "user" -> lecture seule sur tout le cluster
 apiVersion: rbac.authorization.k8s.io/v1

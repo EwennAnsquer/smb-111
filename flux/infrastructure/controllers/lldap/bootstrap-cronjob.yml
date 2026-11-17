@@ -6,6 +6,24 @@
 #
 # Lancement immédiat (sans attendre le prochain créneau) :
 #   kubectl create job --from=cronjob/lldap-bootstrap bootstrap-now -n lldap-system
+#
+# ROTATION DES MOTS DE PASSE lldap
+# --------------------------------
+# 1. Générer des mots de passe uniques et mettre à jour bootstrap-users.enc.yml
+#    avec sops (jamais à la main), y compris le compte de service "authelia".
+# 2. Reporter le mot de passe de "authelia" dans la clé
+#    authentication.ldap.password.txt du Secret authelia-secrets (secret.enc.yml).
+# 3. Committer les deux fichiers ensemble, réconcilier infra-controllers, puis
+#    redémarrer Authelia et lancer ce Job immédiatement :
+#      kubectl rollout restart deployment/authelia -n authelia-system
+#      kubectl create job --from=cronjob/lldap-bootstrap bootstrap-now -n lldap-system
+# 4. Impact : les nouveaux logins exigent le nouveau mot de passe ; les sessions
+#    Authelia et jetons OIDC déjà émis restent valides jusqu'à leur expiration.
+#    Si le bind Authelia est désynchronisé, tous les nouveaux logins échouent.
+# 5. Rollback : git revert du commit, réconciliation Flux, puis relance du Job
+#    (les anciens mots de passe sont alors réappliqués).
+# 6. Ne pas modifier les mots de passe via l'UI lldap : ce CronJob les écrase
+#    toutes les 10 minutes.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
