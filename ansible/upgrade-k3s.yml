@@ -1,64 +1,325 @@
 ---
-- name: Sauvegarde etcd avant mise à jour
+# Montée de version K3s en rolling update (un nœud à la fois).
+#
+# Les arguments K3s ne sont plus passés à l'installateur : ils vivent dans
+# /etc/rancher/k3s/config.yaml (templates des rôles k3s_server et k3s_agent).
+# L'installateur est donc appelé sans flag divergent et réécrit un fichier
+# systemd identique à celui de l'installation initiale.
+#
+# Le playbook doit être lancé sur l'inventaire complet : le préflight récupère
+# le jeton sur le premier master pour les workers.
+#
+# ROLLBACK :
+#   1. Le snapshot etcd de sécurité est créé au début du playbook :
+#        /var/lib/rancher/k3s/server/db/snapshots/pre-upgrade-<version>-<date>
+#   2. En cas d'échec bloquant, restaurer le snapshot sur UN SEUL master :
+#        sudo systemctl stop k3s
+#        sudo k3s server --cluster-reset \
+#          --cluster-reset-restore-path=/var/lib/rancher/k3s/server/db/snapshots/<snapshot>
+#        sudo systemctl start k3s
+#   3. Arrêter k3s sur les autres masters, supprimer leur état etcd local
+#      (/var/lib/rancher/k3s/server/db), puis les redémarrer : ils rejoignent
+#      le cluster via la VIP grâce à `server:` dans config.yaml.
+#   4. Un nœud laissé cordonné après un échec doit être remis en service :
+#        kubectl uncordon <nom-réel-du-nœud>
+#   5. Pour revenir à la version précédente, repiner l'ancienne valeur dans
+#      k3s_version (group_vars/all.yml) et relancer ce playbook.
+#   ATTENTION : la restauration etcd est destructive et cluster-wide.
+
+- name: Préflight (santé, snapshot etcd, jeton)
   hosts: masters[0]
   become: yes
   tasks:
-    - name: Snapshot etcd
-      ansible.builtin.command: k3s etcd-snapshot save --name pre-upgrade-{{ k3s_version }}
+    - name: Vérifier la santé de l'API avant la montée de version
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} get --raw /healthz
+      delegate_to: localhost
+      become: no
+      register: k3s_preflight_healthz
+      until: k3s_preflight_healthz.rc == 0 and (k3s_preflight_healthz.stdout | trim) == 'ok'
+      retries: 12
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    - name: Vérifier la santé d'etcd avant la montée de version
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} get --raw /healthz/etcd
+      delegate_to: localhost
+      become: no
+      register: k3s_preflight_etcd
+      until: k3s_preflight_etcd.rc == 0 and (k3s_preflight_etcd.stdout | trim) == 'ok'
+      retries: 12
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    - name: Snapshot etcd de sécurité avant la montée de version
+      ansible.builtin.command: >
+        k3s etcd-snapshot save
+        --name pre-upgrade-{{ k3s_version | regex_replace('[^0-9A-Za-z._-]', '-') }}-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}
+      register: k3s_pre_upgrade_snapshot
+
+    - name: Afficher le snapshot etcd créé
+      ansible.builtin.debug:
+        msg: "Snapshot etcd de sécurité : {{ k3s_pre_upgrade_snapshot.stdout }}"
+      when: not ansible_check_mode
+
+    - name: Récupérer le jeton d'enregistrement K3s
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_upgrade_token_slurp
+      no_log: true
+
+    - name: Mémoriser le jeton d'enregistrement pour les workers
+      ansible.builtin.set_fact:
+        k3s_upgrade_token: "{{ k3s_upgrade_token_slurp.content | b64decode | trim }}"
+      no_log: true
 
 - name: Mise à jour des masters (un par un)
   hosts: masters
   become: yes
   serial: 1
+  vars_files:
+    - roles/k3s_server/defaults/main.yml
+  vars:
+    k3s_node_address: "{{ ansible_host | default(inventory_hostname) }}"
   tasks:
-    - name: Version actuelle
+    - name: Version actuelle de K3s
       ansible.builtin.command: k3s --version
       register: k3s_current
       changed_when: false
+      check_mode: false
 
-    - name: Mise à jour de K3s
+    - name: Déterminer si une mise à jour est nécessaire
+      ansible.builtin.set_fact:
+        k3s_upgrade_needed: "{{ k3s_version not in k3s_current.stdout }}"
+
+    - name: Résoudre le nom réel du nœud dans Kubernetes
       ansible.builtin.shell: |
-        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server --write-kubeconfig-mode "0644"
-      when: k3s_version not in k3s_current.stdout
+        kubectl --kubeconfig {{ local_kubeconfig }} get nodes \
+          -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' \
+          | awk -v host="{{ inventory_hostname }}" -v ip="{{ k3s_node_address }}" '$1 == host || $2 == ip { print $1; exit }'
+      delegate_to: localhost
+      become: no
+      register: k3s_node_lookup
+      changed_when: false
+      check_mode: false
+      until: k3s_node_lookup.stdout | length > 0
+      retries: 12
+      delay: 5
+
+    - name: Mémoriser le nom réel du nœud
+      ansible.builtin.set_fact:
+        k3s_node_name: "{{ k3s_node_lookup.stdout }}"
+
+    - name: Appliquer la configuration K3s déclarée (master)
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/roles/k3s_server/templates/k3s-config.yaml.j2"
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: '0644'
+      register: k3s_server_config
+
+    - name: Déterminer si le master doit être réinstallé
+      ansible.builtin.set_fact:
+        k3s_master_reinstall: "{{ (k3s_upgrade_needed | bool) or (k3s_server_config.changed | bool) }}"
+
+    - name: Vérifier que le jeton K3s est disponible
+      ansible.builtin.assert:
+        that:
+          - (hostvars[groups['masters'][0]]['k3s_upgrade_token'] | default('') | length) > 0
+        fail_msg: >-
+          Jeton K3s indisponible : lancer le playbook sur l'inventaire complet,
+          le préflight le lit sur le premier master.
+      when:
+        - k3s_master_reinstall | bool
+        - not ansible_check_mode
+
+    - name: Drainer le master avant la réinstallation
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} drain {{ k3s_node_name }}
+        --ignore-daemonsets --delete-emptydir-data --timeout=300s
+      delegate_to: localhost
+      become: no
+      when:
+        - k3s_master_reinstall | bool
+        - k3s_upgrade_drain_masters | bool
+
+    - name: Mettre à jour K3s sur le master
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" INSTALL_K3S_FORCE_RESTART=true K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_upgrade_token'] | default('') }}" sh -s - server
+      when: k3s_master_reinstall | bool
+      no_log: true
 
     - name: Attendre que le nœud soit Ready
       ansible.builtin.command: >
         kubectl --kubeconfig {{ local_kubeconfig }} wait
-        --for=condition=Ready node/{{ inventory_hostname }} --timeout=300s
+        --for=condition=Ready node/{{ k3s_node_name }} --timeout=300s
       delegate_to: localhost
       become: no
-      register: r
-      until: r.rc == 0
+      register: k3s_node_ready
+      until: k3s_node_ready.rc == 0
       retries: 10
       delay: 15
+      changed_when: false
+
+    - name: Vérifier la santé de l'API après la mise à jour du master
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} get --raw /healthz
+      delegate_to: localhost
+      become: no
+      register: k3s_healthz
+      until: k3s_healthz.rc == 0 and (k3s_healthz.stdout | trim) == 'ok'
+      retries: 20
+      delay: 10
+      changed_when: false
+      check_mode: false
+
+    - name: Vérifier la santé d'etcd après la mise à jour du master
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} get --raw /healthz/etcd
+      delegate_to: localhost
+      become: no
+      register: k3s_etcd_healthz
+      until: k3s_etcd_healthz.rc == 0 and (k3s_etcd_healthz.stdout | trim) == 'ok'
+      retries: 20
+      delay: 10
+      changed_when: false
+      check_mode: false
+
+    - name: Vérifier les pods système après la mise à jour du master
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} -n kube-system get pods
+      delegate_to: localhost
+      become: no
+      register: k3s_kube_system_pods
+      changed_when: false
+
+    - name: Afficher les pods système
+      ansible.builtin.debug:
+        var: k3s_kube_system_pods.stdout_lines
+      when: not ansible_check_mode
+
+    - name: Snapshot etcd après la mise à jour du master
+      ansible.builtin.command: >
+        k3s etcd-snapshot save
+        --name post-upgrade-{{ inventory_hostname | regex_replace('[^0-9A-Za-z._-]', '-') }}-{{ k3s_version | regex_replace('[^0-9A-Za-z._-]', '-') }}-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}
+      when: k3s_master_reinstall | bool
+
+    - name: Remettre le master en service
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} uncordon {{ k3s_node_name }}
+      delegate_to: localhost
+      become: no
+      when:
+        - k3s_master_reinstall | bool
+        - k3s_upgrade_drain_masters | bool
 
 - name: Mise à jour des workers (un par un)
   hosts: workers
   become: yes
   serial: 1
+  vars_files:
+    - roles/k3s_agent/defaults/main.yml
+  vars:
+    k3s_node_address: "{{ ansible_host | default(inventory_hostname) }}"
   tasks:
-    - name: Version actuelle
+    - name: Version actuelle de K3s
       ansible.builtin.command: k3s --version
       register: k3s_current
       changed_when: false
+      check_mode: false
 
-    - name: Drain
+    - name: Déterminer si une mise à jour est nécessaire
+      ansible.builtin.set_fact:
+        k3s_upgrade_needed: "{{ k3s_version not in k3s_current.stdout }}"
+
+    - name: Résoudre le nom réel du nœud dans Kubernetes
+      ansible.builtin.shell: |
+        kubectl --kubeconfig {{ local_kubeconfig }} get nodes \
+          -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' \
+          | awk -v host="{{ inventory_hostname }}" -v ip="{{ k3s_node_address }}" '$1 == host || $2 == ip { print $1; exit }'
+      delegate_to: localhost
+      become: no
+      register: k3s_node_lookup
+      changed_when: false
+      check_mode: false
+      until: k3s_node_lookup.stdout | length > 0
+      retries: 12
+      delay: 5
+
+    - name: Mémoriser le nom réel du nœud
+      ansible.builtin.set_fact:
+        k3s_node_name: "{{ k3s_node_lookup.stdout }}"
+
+    - name: Appliquer la configuration K3s déclarée (worker)
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/roles/k3s_agent/templates/k3s-config.yaml.j2"
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: '0644'
+      register: k3s_agent_config
+
+    - name: Déterminer si le worker doit être réinstallé
+      ansible.builtin.set_fact:
+        k3s_worker_reinstall: "{{ (k3s_upgrade_needed | bool) or (k3s_agent_config.changed | bool) }}"
+
+    - name: Vérifier que le jeton K3s est disponible
+      ansible.builtin.assert:
+        that:
+          - (hostvars[groups['masters'][0]]['k3s_upgrade_token'] | default('') | length) > 0
+        fail_msg: >-
+          Jeton K3s indisponible : lancer le playbook sur l'inventaire complet,
+          le préflight le lit sur le premier master.
+      when:
+        - k3s_worker_reinstall | bool
+        - not ansible_check_mode
+
+    - name: Drainer le worker avant la réinstallation
       ansible.builtin.command: >
-        kubectl --kubeconfig {{ local_kubeconfig }} drain {{ inventory_hostname }}
+        kubectl --kubeconfig {{ local_kubeconfig }} drain {{ k3s_node_name }}
         --ignore-daemonsets --delete-emptydir-data --timeout=300s
       delegate_to: localhost
       become: no
-      when: k3s_version not in k3s_current.stdout
+      when: k3s_worker_reinstall | bool
 
-    - name: Mise à jour de l'agent
+    - name: Mettre à jour l'agent K3s
       ansible.builtin.shell: |
-        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - agent
-      when: k3s_version not in k3s_current.stdout
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" INSTALL_K3S_FORCE_RESTART=true K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_upgrade_token'] | default('') }}" sh -s - agent
+      when: k3s_worker_reinstall | bool
+      no_log: true
 
-    - name: Attendre que le nœud soit Ready puis uncordon
-      ansible.builtin.shell: |
-        kubectl --kubeconfig {{ local_kubeconfig }} wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=300s &&
-        kubectl --kubeconfig {{ local_kubeconfig }} uncordon {{ inventory_hostname }}
+    - name: Attendre que le nœud soit Ready
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} wait
+        --for=condition=Ready node/{{ k3s_node_name }} --timeout=300s
       delegate_to: localhost
       become: no
+      register: k3s_node_ready
+      until: k3s_node_ready.rc == 0
+      retries: 10
+      delay: 15
+      changed_when: false
 
+    - name: Vérifier que le label role=worker est conservé
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} get node {{ k3s_node_name }}
+        -o jsonpath='{.metadata.labels.role}'
+      delegate_to: localhost
+      become: no
+      register: k3s_worker_label
+      until: (k3s_worker_label.stdout | trim) == 'worker'
+      retries: 12
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    - name: Remettre le worker en service
+      ansible.builtin.command: >
+        kubectl --kubeconfig {{ local_kubeconfig }} uncordon {{ k3s_node_name }}
+      delegate_to: localhost
+      become: no
+      when: k3s_worker_reinstall | bool

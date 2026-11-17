@@ -1,3 +1,4 @@
+write-kubeconfig-mode: "0644"
 etcd-expose-metrics: {{ k3s_server_etcd_expose_metrics | lower }}
 disable:
 {% for component in k3s_server_disabled_components %}
@@ -12,3 +13,10 @@ kube-apiserver-arg:
   - "oidc-username-prefix=oidc:"
   - "oidc-groups-claim=groups"
   - "oidc-groups-prefix=oidc:"
+# cluster-init uniquement sur le premier master : les autres rejoignent
+# le cluster existant via la VIP.
+{% if inventory_hostname == groups['masters'][0] %}
+cluster-init: true
+{% else %}
+server: "https://{{ vip_ip }}:6443"
+{% endif %}

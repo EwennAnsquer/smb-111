@@ -27,7 +27,7 @@
 
 - name: Initialiser le cluster K3s (premier master uniquement)
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server --cluster-init --write-kubeconfig-mode "0644"
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server
   args:
     creates: /etc/systemd/system/k3s.service
   when: inventory_hostname == groups['masters'][0]
@@ -47,7 +47,7 @@
 
 - name: Joindre les autres masters au cluster
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" sh -s - server --server "https://{{ vip_ip }}:6443" --write-kubeconfig-mode "0644"
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" sh -s - server
   args:
     creates: /etc/systemd/system/k3s.service
   when: inventory_hostname != groups['masters'][0]

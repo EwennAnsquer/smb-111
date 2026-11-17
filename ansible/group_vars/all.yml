@@ -17,6 +17,11 @@ k3s_version: "v1.37.0+k3s1"
 vip_ip: "192.168.1.210"
 vip_interface: "eth0"
 
+# --- Montée de version K3s ---
+# Les serveurs k3s ne sont pas taintés par défaut : des charges peuvent y
+# tourner, il faut donc les drainer avant de les mettre à jour.
+k3s_upgrade_drain_masters: true
+
 # --- Kubeconfig local ---
 local_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
 
