@@ -1,12 +1,26 @@
 terraform {
+  required_version = ">= 1.10.0"
+
+  # Backend distant S3/MinIO en configuration partielle : le bucket, l'endpoint
+  # et les options propres au fournisseur sont fournis par backend.hcl
+  # (non versionné, voir backend.hcl.example). Les identifiants passent par
+  # les variables d'environnement AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+  # Le verrouillage natif S3 évite une table DynamoDB (Terraform >= 1.10).
+  backend "s3" {
+    key          = "smb-111/terraform.tfstate"
+    region       = "gra"
+    use_lockfile = true
+    encrypt      = true
+  }
+
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = ">= 0.60.0"
+      version = "~> 0.113"
     }
     local = {
       source  = "hashicorp/local"
-      version = ">= 2.4.0"
+      version = "~> 2.9"
     }
   }
 }

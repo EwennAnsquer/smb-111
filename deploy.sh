@@ -119,10 +119,14 @@ fi
 
 # 1. Déploiement Terraform
 cd "$PROJECT_DIR/terraform" || exit 1
-terraform init
+if [ ! -f backend.hcl ]; then
+  echo "Erreur : terraform/backend.hcl est absent. Copiez backend.hcl.example et adaptez le bucket S3/MinIO." >&2
+  exit 1
+fi
+terraform init -backend-config=backend.hcl
 
 sops -d secrets.enc.tfvars.json >"$TMP_VARS"
-terraform apply -var-file="$TMP_VARS" -auto-approve
+terraform apply -var-file="$TMP_VARS" -lock-timeout=5m -auto-approve
 
 # On se place dans le dossier ansible en avance pour avoir accès à inventory.ini
 cd "$PROJECT_DIR/ansible" || exit 1

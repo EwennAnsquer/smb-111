@@ -1,3 +1,6 @@
 secrets.tfvars
 secrets.json
 secrets.tfvars.json
+backend.hcl
+.terraform.tfstate.lock.info
+crash.*.log

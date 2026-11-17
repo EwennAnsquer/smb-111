@@ -198,6 +198,31 @@ Le script `deploy.sh` vérifie que l'arbre Git est propre et synchronisé avec G
 
 Flux déploie depuis GitHub : si l'arbre Git contient des modifications non poussées, le script s'arrête. Commitez et poussez vos changements, ou relancez avec `ALLOW_DIRTY=1` en sachant que ces changements locaux ne seront **pas** appliqués par Flux.
 
+### Backend Terraform distant
+
+Le state Terraform est stocké dans un backend S3/MinIO avec verrouillage natif (`use_lockfile`). La configuration du bucket reste hors dépôt :
+
+```bash
+cp terraform/backend.hcl.example terraform/backend.hcl
+# Adapter bucket/endpoint, puis exporter AWS_ACCESS_KEY_ID et AWS_SECRET_ACCESS_KEY
+```
+
+Lors du premier passage depuis le state local, sauvegarder puis migrer :
+
+```bash
+cd terraform
+cp terraform.tfstate "terraform.tfstate.bak-$(date +%F)"
+terraform init -migrate-state -backend-config=backend.hcl
+terraform state list
+```
+
+Le state local n'est supprimé qu'après vérification. Les applications utilisent `-lock-timeout=5m` pour attendre un verrou concurrent.
+
+### Stockage et dimensionnement
+
+- Les disques des workers restent sur le datastore NFS `nfs-smb-111` (contrainte de capacité). Longhorn écrit ses réplicas dans `/var/lib/longhorn` : le stockage distribué dépend donc du NFS, avec une latence supplémentaire et une dépendance à la disponibilité du serveur NFS. À migrer vers `local-lvm` si du stockage local est ajouté.
+- Chaque VM dispose de 30 Go et de 4 à 5 Go de RAM pour toute la stack (Longhorn, monitoring VictoriaMetrics/Loki, Authelia…). Surveiller l'usage disque et mémoire et augmenter `size`/`ram` dans `terraform/terraform.tfvars.json` avant saturation.
+
 ### Déploiement standard
 ```bash
 chmod +x deploy.sh
@@ -213,8 +238,8 @@ Ce mode **ne détruit pas le cluster** : il ne supprime ni les VMs, ni les volum
 ```bash
 SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt \
   sops -d terraform/secrets.enc.tfvars.json > /tmp/secrets.tfvars.json
-terraform -chdir=terraform init
-terraform -chdir=terraform destroy -var-file=/tmp/secrets.tfvars.json
+terraform -chdir=terraform init -backend-config=backend.hcl
+terraform -chdir=terraform destroy -var-file=/tmp/secrets.tfvars.json -lock-timeout=5m
 rm -f /tmp/secrets.tfvars.json
 
 FRESH_INSTALL=1 ./deploy.sh

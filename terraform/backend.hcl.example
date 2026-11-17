@@ -1,0 +1,31 @@
+# Exemple de configuration partielle du backend S3/MinIO.
+# Copier ce fichier en backend.hcl (ignoré par Git) puis adapter les valeurs.
+# Les identifiants ne doivent jamais figurer ici : utiliser les variables
+# d'environnement AWS_ACCESS_KEY_ID et AWS_SECRET_ACCESS_KEY.
+
+bucket = "smb-111-terraform-state"
+
+# Endpoint S3 (décommenter et adapter selon le fournisseur).
+# OVH Object Storage :
+# endpoints {
+#   s3 = "https://s3.gra.io.cloud.ovh.net"
+# }
+# MinIO auto-hébergé :
+# endpoints {
+#   s3 = "http://192.168.1.10:9000"
+# }
+
+# Options nécessaires pour un backend S3-compatible (MinIO, OVH...).
+skip_credentials_validation = true
+skip_region_validation      = true
+skip_requesting_account_id  = true
+skip_s3_checksum            = true
+
+# Mettre à false si le backend ne gère pas le chiffrement côté serveur.
+# encrypt = true
+
+# Alternative PostgreSQL (non utilisée par défaut) :
+# terraform {
+#   backend "pg" {}
+# }
+# puis backend.hcl avec conn_str = "postgres://user:password@host:5432/terraform?sslmode=require"
