@@ -165,6 +165,13 @@
       delay: 15
       changed_when: false
 
+    - name: Restreindre les permissions du kubeconfig administrateur
+      ansible.builtin.file:
+        path: /etc/rancher/k3s/k3s.yaml
+        owner: root
+        group: root
+        mode: '0600'
+
     - name: Vérifier les permissions du kubeconfig administrateur
       ansible.builtin.stat:
         path: /etc/rancher/k3s/k3s.yaml
