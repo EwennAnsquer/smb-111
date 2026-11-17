@@ -2,3 +2,11 @@
 k3s_server_disabled_components:
   - traefik
 k3s_server_etcd_expose_metrics: true
+
+# Snapshots etcd (masters) : quotidiens à 03:00, 14 conservés (~2 semaines).
+k3s_server_etcd_snapshot_schedule_cron: "0 3 * * *"
+k3s_server_etcd_snapshot_retention: 14
+# Répertoire hors de /var/lib/rancher/k3s/server/db (survit à un reset du
+# datastore). Reste sur le disque racine : l'export hors site est obligatoire
+# (voir docs/sauvegardes-restauration.md).
+k3s_server_etcd_snapshot_dir: /var/backups/k3s-etcd

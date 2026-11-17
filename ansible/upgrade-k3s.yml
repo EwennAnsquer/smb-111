@@ -10,12 +10,15 @@
 # le jeton sur le premier master pour les workers.
 #
 # ROLLBACK :
-#   1. Le snapshot etcd de sécurité est créé au début du playbook :
-#        /var/lib/rancher/k3s/server/db/snapshots/pre-upgrade-<version>-<date>
+#   1. Le snapshot etcd de sécurité est créé au début du playbook dans
+#      etcd-snapshot-dir : /var/backups/k3s-etcd (au tout premier passage
+#      après ce changement, l'ancien répertoire par défaut
+#      /var/lib/rancher/k3s/server/db/snapshots est encore utilisé).
+#      Localiser le fichier avec `k3s etcd-snapshot list`.
 #   2. En cas d'échec bloquant, restaurer le snapshot sur UN SEUL master :
 #        sudo systemctl stop k3s
 #        sudo k3s server --cluster-reset \
-#          --cluster-reset-restore-path=/var/lib/rancher/k3s/server/db/snapshots/<snapshot>
+#          --cluster-reset-restore-path=/var/backups/k3s-etcd/<snapshot>
 #        sudo systemctl start k3s
 #   3. Arrêter k3s sur les autres masters, supprimer leur état etcd local
 #      (/var/lib/rancher/k3s/server/db), puis les redémarrer : ils rejoignent
@@ -112,6 +115,15 @@
     - name: Mémoriser le nom réel du nœud
       ansible.builtin.set_fact:
         k3s_node_name: "{{ k3s_node_lookup.stdout }}"
+
+    # Les snapshots etcd contiennent tous les secrets du cluster : dossier root-only.
+    - name: Créer le répertoire des snapshots etcd
+      ansible.builtin.file:
+        path: "{{ k3s_server_etcd_snapshot_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
 
     - name: Appliquer la configuration K3s déclarée (master)
       ansible.builtin.template:

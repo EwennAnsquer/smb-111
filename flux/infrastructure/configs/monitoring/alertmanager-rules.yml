@@ -47,3 +47,27 @@ spec:
           annotations:
             summary: "Mémoire élevée sur {{ $labels.instance }}"
             description: "Le nœud {{ $labels.instance }} utilise {{ $value | printf \"%.0f\" }} % de sa RAM depuis plus de 5 minutes (seuil : 85 %)."
+
+    - name: smb-111.backups
+      rules:
+        # Un Backup qui passe en erreur (état 4) déclenche l'alerte pendant 6 h.
+        # Le test `changes` évite qu'un ancien Backup en erreur sonne sans fin.
+        - alert: LonghornBackupFailed
+          expr: (longhorn_backup_state == 4) and (changes(longhorn_backup_state[6h]) > 0)
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Backup Longhorn en erreur : {{ $labels.volume }}"
+            description: "Un Backup du volume {{ $labels.volume }} est passé en erreur (état 4). Vérifier la cible S3 et le RecurringJob daily-backup."
+
+        # Le backup quotidien tourne à 02:00 : 26 h laissent une exécution de marge.
+        # Un volume jamais sauvegardé (last_backup_at = 0) déclenche aussi l'alerte.
+        - alert: LonghornBackupTooOld
+          expr: (time() - max by (volume, pvc_namespace, pvc) (longhorn_volume_last_backup_at)) > 26 * 3600
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pas de backup réussi depuis >26 h : {{ $labels.pvc_namespace }}/{{ $labels.pvc }}"
+            description: "Le backup quotidien de 02:00 n'a pas abouti pour le volume {{ $labels.volume }} (cible indisponible, job en échec ou volume jamais sauvegardé)."

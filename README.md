@@ -345,6 +345,15 @@ Le script supprime le cache `~/.kube/cache/oidc-login` ; la prochaine commande k
 
 ---
 
+## 💾 SAUVEGARDES ET RESTAURATION
+
+- **Longhorn** : RecurringJob `daily-backup` à 02:00 sur tous les volumes du groupe `default`, 14 backups quotidiens incrémentaux par volume vers la cible S3 MinIO.
+- **etcd** : snapshot automatique à 03:00 sur chaque master (14 conservés dans `/var/backups/k3s-etcd`), avec export hors site à planifier via `rclone`.
+- Alertes `LonghornBackupFailed` et `LonghornBackupTooOld` dans le groupe `smb-111.backups`.
+- Procédure d'export hors site et **test de restauration pas à pas** : [docs/sauvegardes-restauration.md](docs/sauvegardes-restauration.md).
+
+---
+
 ## 🩺 DÉPANNAGE
 
 ### `dry-run failed ... spec.interval: Required value`

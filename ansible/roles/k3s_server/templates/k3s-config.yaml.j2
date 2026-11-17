@@ -2,6 +2,10 @@
 # utilisateurs locaux des VM).
 write-kubeconfig-mode: "0600"
 etcd-expose-metrics: {{ k3s_server_etcd_expose_metrics | lower }}
+# Snapshots etcd planifiés (chaque master sauvegarde son propre etcd).
+etcd-snapshot-schedule-cron: "{{ k3s_server_etcd_snapshot_schedule_cron }}"
+etcd-snapshot-retention: {{ k3s_server_etcd_snapshot_retention }}
+etcd-snapshot-dir: {{ k3s_server_etcd_snapshot_dir }}
 disable:
 {% for component in k3s_server_disabled_components %}
   - {{ component }}

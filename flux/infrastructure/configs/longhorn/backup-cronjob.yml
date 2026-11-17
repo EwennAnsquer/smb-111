@@ -10,7 +10,10 @@ spec:
     - default
   task: backup
   cron: "0 2 * * *"
-  retain: 3
+  # 14 backups quotidiens incrémentaux par volume (~2 semaines). La rétention
+  # ne concerne que les backups gérés par ce job ; la politique côté MinIO
+  # (versioning/lifecycle) est décrite dans docs/sauvegardes-restauration.md.
+  retain: 14
   concurrency: 1
   labels:
     type: daily

@@ -10,6 +10,15 @@
     state: directory
     mode: '0755'
 
+# Les snapshots etcd contiennent tous les secrets du cluster : dossier root-only.
+- name: Créer le répertoire des snapshots etcd
+  ansible.builtin.file:
+    path: "{{ k3s_server_etcd_snapshot_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
 - name: Configurer K3s (métriques etcd, désactivation du traefik natif)
   ansible.builtin.template:
     src: k3s-config.yaml.j2

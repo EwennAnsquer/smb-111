@@ -1,0 +1,22 @@
+---
+# Longhorn n'expose pas ses métriques par défaut dans cette stack : le chart
+# est installé avec metrics.serviceMonitor désactivé (CRD Prometheus Operator).
+# Ce VMServiceScrape récupère les métriques du service longhorn-backend
+# (port manager 9500), notamment longhorn_backup_state et
+# longhorn_volume_last_backup_at utilisées par les alertes de sauvegarde.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: longhorn
+  namespace: monitoring-system
+spec:
+  namespaceSelector:
+    matchNames:
+      - longhorn-system
+  selector:
+    matchLabels:
+      app: longhorn-manager
+  endpoints:
+    - port: manager
+      path: /metrics
+      interval: 30s
