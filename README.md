@@ -48,6 +48,7 @@ Avant de commencer, assurez-vous d'avoir installé les outils suivants sur votre
 - **[FluxCD](https://fluxcd.io/)** (CLI `flux`) : Outil de déploiement continu GitOps.
 - **[SOPS](https://github.com/getsops/sops)** : Outil de chiffrement de fichiers de configuration (YAML, JSON).
 - **[age](https://github.com/FiloSottile/age)** : Outil de chiffrement à clé publique utilisé par SOPS.
+- **[pre-commit](https://pre-commit.com/)** et **[gitleaks](https://github.com/gitleaks/gitleaks)** : Contrôle des secrets avant chaque commit (voir étape 4).
 - **[kubelogin](https://github.com/int128/kubelogin)** (plugin `kubectl oidc-login`) : Uniquement pour l'accès au cluster avec authentification OIDC (voir étape 7).
 - Un compte **[GitHub](https://github.com/)** avec un token d'accès personnel (PAT) pour FluxCD.
 - Un nom de domaine géré chez **[OVH](https://www.ovh.com/)** pour la génération automatique de certificats SSL Let's Encrypt (DNS-01).
@@ -72,6 +73,8 @@ Les secrets du projet sont chiffrés avec une clé **age**. Pour pouvoir déploy
    ```bash
    chmod 600 ~/.config/sops/age/keys.txt
    ```
+
+> ⚠️ La clé privée ne doit **jamais** être stockée dans le dépôt. `.gitignore` bloque `*.agekey` et `age.agekey`, mais ces règles ne protègent pas d'un `git add -f`.
 
 ---
 
@@ -122,6 +125,70 @@ Si vous devez modifier un fichier de secrets chiffré, utilisez SOPS :
 sops terraform/secrets.enc.tfvars.json
 sops ansible/group_vars/secrets.enc.yml
 ```
+
+### Contrôle des secrets avant commit
+
+Les fichiers en clair (`.yml`, `.tfvars.json`, `inventory.ini`, clés `age`) sont ignorés par `.gitignore`, mais cette protection reste contournable. Un hook **gitleaks** bloque les commits contenant un secret détectable :
+
+```bash
+pipx install pre-commit      # ou : pip install --user pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+Le hook officiel compile gitleaks à la première exécution (Go requis). À défaut, installer le binaire gitleaks et remplacer l'id `gitleaks` par `gitleaks-system` dans `.pre-commit-config.yaml`.
+
+Contrôle manuel (gitleaks installé séparément, voir les releases GitHub) :
+
+```bash
+gitleaks detect --no-git --source . --config .gitleaks.toml   # arborescence courante
+gitleaks detect --source . --config .gitleaks.toml            # historique Git
+```
+
+Les fichiers `*.enc.*` sont exclus dans `.gitleaks.toml` (contenu SOPS en base64). Ne jamais utiliser `git commit --no-verify` pour contourner le hook.
+
+> ⚠️ Un ancien secret Longhorn (basic auth), supprimé depuis, subsiste dans l'historique Git (commit `139722f`). Il est explicitement allowlisté dans `.gitleaks.toml` car l'historique n'est pas réécrit ici. Régénérer ce basic auth s'il est encore utilisé et envisager une réécriture d'historique (`git filter-repo`) dans une tâche dédiée.
+
+### Rotation de la clé age
+
+À réaliser sur une machine disposant de l'ancienne clé. La clé privée ne doit jamais être commitée.
+
+1. Générer la nouvelle clé et noter sa clé publique :
+   ```bash
+   age-keygen -o ~/.config/sops/age/keys.new.txt
+   chmod 600 ~/.config/sops/age/keys.new.txt
+   age-keygen -y ~/.config/sops/age/keys.new.txt
+   ```
+2. Remplacer le destinataire `age:` dans `.sops.yaml` par la nouvelle clé publique.
+3. Rechiffrer les fichiers : `sops updatekeys` a besoin de l'ancienne clé pour déchiffrer la clé de données et de la nouvelle pour la réécrire. Utiliser temporairement un fichier contenant les deux clés privées :
+   ```bash
+   cat ~/.config/sops/age/keys.txt ~/.config/sops/age/keys.new.txt > /tmp/age-rotation.txt
+   chmod 600 /tmp/age-rotation.txt
+   export SOPS_AGE_KEY_FILE=/tmp/age-rotation.txt
+   find . -path ./.git -prune -o -name '*.enc.*' -print0 | xargs -0 -n1 sops updatekeys -y
+   rm -f /tmp/age-rotation.txt
+   ```
+4. Vérifier le déchiffrement avec la nouvelle clé seule :
+   ```bash
+   SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.new.txt sops -d terraform/secrets.enc.tfvars.json >/dev/null
+   SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.new.txt sops -d ansible/group_vars/secrets.enc.yml >/dev/null
+   ```
+5. Remplacer l'ancienne clé locale :
+   ```bash
+   mv ~/.config/sops/age/keys.new.txt ~/.config/sops/age/keys.txt
+   ```
+6. Redéployer le secret `sops-age` consommé par Flux : `deploy.sh` l'alimente depuis `$SOPS_AGE_KEY_FILE`.
+7. Vérifier la réconciliation Flux, puis supprimer les sauvegardes de l'ancienne clé.
+
+### Visibilité du dépôt et rotation des jetons
+
+Le dépôt doit rester **privé** (GitHub → Settings → General → Danger Zone → Change visibility). Visibilité constatée lors de l'audit : **publique**, à corriger. Vérification :
+
+```bash
+gh repo view EwennAnsquer/smb-111 --json visibility
+```
+
+Les jetons Proxmox et GitHub ont circulé en clair sur disque : les régénérer après assainissement du poste (Proxmox → Datacenter → Permissions → API Tokens, GitHub → Settings → Developer settings → Personal access tokens).
 
 ---
 

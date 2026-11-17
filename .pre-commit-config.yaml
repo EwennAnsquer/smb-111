@@ -1,0 +1,8 @@
+# Hook pre-commit : bloque tout commit contenant un secret en clair.
+# Installation : pre-commit install
+# Contrôle manuel : pre-commit run --all-files
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

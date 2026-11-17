@@ -1,0 +1,20 @@
+# Configuration gitleaks du projet.
+# Les fichiers chiffrés par SOPS contiennent du base64 à forte entropie :
+# on les exclut pour éviter les faux positifs. Leur contenu reste chiffré.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fichiers chiffrés avec SOPS (contenu base64 non exploitable en clair)"
+paths = [
+  '''\.enc\.(ya?ml|tfvars\.json)$''',
+]
+
+# Exposition historique connue : ancien secret Longhorn (fichier supprimé au commit 7fb52e7).
+# L'historique n'est pas réécrit dans cette tâche ; rotation du basic auth Longhorn recommandée.
+[[allowlists]]
+description = "Ancien secret Longhorn présent uniquement dans l'historique (commit 139722f)"
+condition = "AND"
+commits = ["139722f0dc0e8bd5e32b21c820fb21c08432bbc3"]
+paths = ['''^cluster/longhorn-system/longhorn-basic-auth\.yml$''']
