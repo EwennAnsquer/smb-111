@@ -18,12 +18,41 @@ spec:
       labels:
         app.kubernetes.io/name: lldap
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: lldap
           # Image officielle. `stable` = dernière version stable ; à épingler sur un tag/digest
           # (ex. via Renovate) une fois que tout fonctionne.
           image: lldap/lldap:stable
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          # L'entrypoint officiel fait un chown de /app avant de passer à l'UID
+          # 1000 ; incompatible avec un rootfs en lecture seule et un démarrage
+          # direct en non-root. On copie la config si nécessaire puis on lance
+          # le binaire directement (le PVC /data appartient déjà à l'UID 1000).
+          command:
+            - /sbin/tini
+            - --
+            - /bin/sh
+            - -c
+          args:
+            - |
+              if [ ! -f /data/lldap_config.toml ]; then
+                cp /app/lldap_config.docker_template.toml /data/lldap_config.toml
+              fi
+              exec /app/lldap run --config-file /data/lldap_config.toml
           ports:
             - name: ldap
               containerPort: 3890
@@ -32,6 +61,8 @@ spec:
           env:
             - name: TZ
               value: Europe/Paris
+            - name: HOME
+              value: /tmp
             - name: LLDAP_LDAP_BASE_DN
               value: dc=azby,dc=fr                        # doit correspondre à Authelia
             - name: LLDAP_LDAP_USER_EMAIL
@@ -56,6 +87,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             tcpSocket:
               port: http
@@ -80,3 +113,5 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: lldap-data
+        - name: tmp
+          emptyDir: {}

@@ -42,11 +42,25 @@ spec:
         spec:
           restartPolicy: OnFailure
           enableServiceLinks: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: bootstrap
               image: lldap/lldap:stable       # même image que le serveur (contient bootstrap.sh)
               command: ["/app/bootstrap.sh"]  # on court-circuite l'entrypoint du serveur
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
               env:
+                - name: HOME
+                  value: /tmp
                 - name: LLDAP_URL
                   value: http://lldap.lldap-system.svc.cluster.local:17170
                 - name: LLDAP_ADMIN_USERNAME
@@ -68,6 +82,8 @@ spec:
                 - name: users
                   mountPath: /bootstrap/user-configs
                   readOnly: true
+                - name: tmp
+                  mountPath: /tmp
               resources:
                 requests:
                   cpu: 25m
@@ -81,3 +97,5 @@ spec:
             - name: users
               secret:
                 secretName: lldap-bootstrap-users
+            - name: tmp
+              emptyDir: {}

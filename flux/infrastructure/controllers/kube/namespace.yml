@@ -1,0 +1,20 @@
+---
+# kube-system contient des composants k3s privilégiés (kube-vip, klipper-lb,
+# CoreDNS, local-path, metrics-server). On fixe explicitement le profil PSA
+# plutôt que de dépendre du défaut "privileged".
+#
+# L'annotation de prune désactivé évite que Flux supprime ce namespace critique
+# si le fichier venait à être retiré du dépôt.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-system
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/warn-version: latest

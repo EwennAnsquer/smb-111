@@ -28,11 +28,27 @@ spec:
         spec:
           restartPolicy: OnFailure
           enableServiceLinks: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: role-sync
               image: python:3.12-alpine
               command: ["python3", "/script/sync.py"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
               env:
+                - name: HOME
+                  value: /tmp
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
                 - name: GRAFANA_ADMIN_PASSWORD
                   valueFrom:
                     secretKeyRef:
@@ -45,6 +61,8 @@ spec:
                 - name: script
                   mountPath: /script
                   readOnly: true
+                - name: tmp
+                  mountPath: /tmp
               resources:
                 requests:
                   cpu: 10m
@@ -58,6 +76,8 @@ spec:
             - name: script
               configMap:
                 name: grafana-role-sync-script
+            - name: tmp
+              emptyDir: {}
 ---
 apiVersion: v1
 kind: ConfigMap

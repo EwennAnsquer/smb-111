@@ -26,6 +26,18 @@ spec:
     remediation:
       retries: -1
   values:
+    pod:
+      securityContext:
+        pod:
+          runAsNonRoot: true
+          runAsGroup: 1000
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        container:
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
     groupName: acme.azby.com
     certManager:
       namespace: cert-manager-system
