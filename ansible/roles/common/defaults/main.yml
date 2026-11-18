@@ -7,4 +7,3 @@ common_packages:
   - util-linux
   - grep
   - gawk
-

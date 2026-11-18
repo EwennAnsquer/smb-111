@@ -5,16 +5,16 @@
   block:
     - name: Attendre que le serveur API Kubernetes soit prêt
       ansible.builtin.command: kubectl get nodes
-      register: api_check
-      until: api_check.rc == 0
+      register: k3s_postinstall_api_check
+      until: k3s_postinstall_api_check.rc == 0
       retries: "{{ k3s_postinstall_api_retries }}"
       delay: "{{ k3s_postinstall_api_delay }}"
       changed_when: false
 
     - name: Attendre que tous les nœuds workers soient visibles
       ansible.builtin.command: kubectl get node {{ item }}
-      register: node_check
-      until: node_check.rc == 0
+      register: k3s_postinstall_node_check
+      until: k3s_postinstall_node_check.rc == 0
       retries: "{{ k3s_postinstall_nodes_retries }}"
       delay: "{{ k3s_postinstall_nodes_delay }}"
       changed_when: false
@@ -22,13 +22,15 @@
       when: groups['workers'] is defined and groups['workers'] | length > 0
 
     - name: Affecter le rôle worker aux nœuds
-      ansible.builtin.command: >
-        kubectl label node {{ item }} node-role.kubernetes.io/worker=worker --overwrite
-      loop: "{{ groups['workers'] }}"
+      ansible.builtin.command: >-
+        kubectl label node {{ groups['workers'] | join(' ') }}
+        node-role.kubernetes.io/worker=worker --overwrite
       when: groups['workers'] is defined and groups['workers'] | length > 0
+      register: k3s_postinstall_label
+      changed_when: "'not labeled' not in k3s_postinstall_label.stdout"
 
 - name: Télécharger k3s.yaml vers la machine locale
   ansible.builtin.fetch:
     src: "{{ k3s_postinstall_kubeconfig }}"
     dest: "{{ local_kubeconfig }}"
-    flat: yes
+    flat: true

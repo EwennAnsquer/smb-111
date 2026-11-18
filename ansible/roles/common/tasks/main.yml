@@ -4,15 +4,21 @@
   changed_when: false
   failed_when: false
 
+# Politique de mise à jour : `safe` applique les correctifs sans supprimer de
+# paquets ni forcer une résolution risquée. Les correctifs de sécurité sont
+# ensuite gérés par unattended-upgrades (rôle hardening). Aucun redémarrage
+# automatique : un nouveau noyau reste inactif jusqu'au prochain passage de
+# maintenance.yml (drain, reboot, uncordon, un nœud à la fois).
 - name: Mettre à jour les paquets
   ansible.builtin.apt:
     update_cache: true
-    upgrade: dist
+    upgrade: safe
+    autoremove: true
     lock_timeout: 120
-  register: apt_result
+  register: common_apt_result
   retries: 3
   delay: 10
-  until: apt_result is succeeded
+  until: common_apt_result is succeeded
 
 - name: Installation des paquets
   ansible.builtin.apt:
@@ -23,7 +29,7 @@
   ansible.builtin.systemd:
     name: iscsid
     state: started
-    enabled: yes
+    enabled: true
 
 - name: Désactiver le swap (immédiat)
   ansible.builtin.command: swapoff -a
@@ -34,4 +40,3 @@
     path: /etc/fstab
     regexp: '^([^#].*\sswap\s.*)$'
     replace: '# \1'
-

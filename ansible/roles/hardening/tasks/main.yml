@@ -5,19 +5,41 @@
       - ufw
       - unattended-upgrades
     state: present
-    update_cache: yes
+    update_cache: true
 
 # ---------- Pare-feu ----------
 # Les règles sont ajoutées AVANT d'activer ufw, pour ne pas se couper l'accès SSH.
+#
+# Flux entrants autorisés :
+#   - 22/tcp          : administration (SSH) depuis le réseau local
+#   - 80/443/tcp      : Ingress Traefik (klipper-lb hostPort) depuis le réseau local
+#   - 6443/tcp        : API Kubernetes sur les masters (administration)
+#   - tout protocole  : entre nœuds du cluster (voir la règle inter-nœuds)
+#   - 30000-32767/tcp : NodePorts, uniquement si explicitement activés
+#
+# Flux non concernés par ufw :
+#   - kube-vip en mode ARP (vip_arp=true) : annonces ARP de niveau 2, non
+#     filtrées par ufw ; VRRP (protocole 112) n'est pas utilisé.
+#   - Tailscale : l'operator et ses proxies initient leurs connexions vers
+#     l'extérieur ; aucun port d'écoute n'est exposé sur les nœuds.
 
-- name: Autoriser SSH, HTTP et HTTPS depuis les sources d'administration
+- name: Autoriser SSH depuis les sources d'administration
   community.general.ufw:
     rule: allow
     src: "{{ item.0 }}"
     to_port: "{{ item.1 }}"
     proto: tcp
     comment: "admin {{ item.1 }}"
-  loop: "{{ hardening_admin_sources | product(['22', '80', '443']) | list }}"
+  loop: "{{ hardening_admin_sources | product(hardening_admin_ports) | list }}"
+
+- name: Autoriser l'ingress HTTP et HTTPS depuis le réseau local
+  community.general.ufw:
+    rule: allow
+    src: "{{ item.0 }}"
+    to_port: "{{ item.1 }}"
+    proto: tcp
+    comment: "ingress {{ item.1 }}"
+  loop: "{{ hardening_admin_sources | product(hardening_ingress_tcp_ports) | list }}"
 
 - name: Autoriser l'API Kubernetes (6443) sur les masters
   community.general.ufw:
@@ -29,7 +51,16 @@
   loop: "{{ hardening_admin_sources }}"
   when: inventory_hostname in groups['masters']
 
-- name: Faire confiance aux autres nœuds du cluster (kubelet, etcd, VXLAN, Longhorn)
+# Règle large et volontaire : elle couvre les flux suivants entre nœuds.
+#   - API Kubernetes 6443/tcp (dont jointure des serveurs via la VIP)
+#   - kubelet 10250/tcp (logs, exec, métriques)
+#   - etcd 2379-2380/tcp (quorum et réplication)
+#   - VXLAN flannel 8472/udp (réseau des pods)
+#   - iSCSI Longhorn 3260/tcp (cibles exposées par les nœuds)
+#   - métriques node-exporter 9100/tcp
+# La restreindre port par port fragiliserait le cluster sans gain réel sur un
+# réseau d'administration de confiance.
+- name: Faire confiance aux autres nœuds du cluster (API, kubelet, etcd, VXLAN, Longhorn)
   community.general.ufw:
     rule: allow
     src: "{{ hostvars[item].ansible_host | default(item) }}"
@@ -44,6 +75,16 @@
   loop:
     - "{{ hardening_pod_cidr }}"
     - "{{ hardening_service_cidr }}"
+
+- name: Autoriser les NodePorts depuis les sources d'administration
+  community.general.ufw:
+    rule: allow
+    src: "{{ item }}"
+    to_port: "{{ hardening_nodeport_range }}"
+    proto: tcp
+    comment: "NodePorts 30000-32767"
+  loop: "{{ hardening_nodeport_sources }}"
+  when: hardening_nodeport_enabled | bool
 
 - name: Politique par défaut, entrant refusé
   community.general.ufw:

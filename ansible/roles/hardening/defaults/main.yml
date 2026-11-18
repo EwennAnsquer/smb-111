@@ -1,10 +1,26 @@
 ---
-# Qui peut atteindre SSH (22), HTTP/HTTPS (80, 443) et l'API (6443 sur les masters).
-# Pour être plus strict, remplacez par l'IP de la machine devops (ex. "192.168.1.50/32").
+# Sources autorisées à administrer les nœuds (SSH, API Kubernetes) et à
+# atteindre l'ingress. L'accès reste limité au réseau local : Tailscale passe
+# par les pods de l'operator (aucun port d'écoute sur les nœuds).
+# Pour être plus strict, remplacer par l'IP de la machine devops (ex. "192.168.1.50/32").
 hardening_admin_sources:
   - "192.168.1.0/24"
 
+# SSH et ingress HTTP/HTTPS (Traefik via klipper-lb : hostPort 80/443 sur
+# chaque nœud). Volontairement non exposés à Internet.
+hardening_admin_ports:
+  - "22"
+hardening_ingress_tcp_ports:
+  - "80"
+  - "443"
+
 hardening_pod_cidr: "10.42.0.0/16"
 hardening_service_cidr: "10.43.0.0/16"
+
+# NodePorts applicatifs : non utilisés (services ClusterIP + Ingress).
+# Passer à true uniquement si un service de type NodePort est déployé.
+hardening_nodeport_enabled: false
+hardening_nodeport_range: "30000:32767"
+hardening_nodeport_sources: "{{ hardening_admin_sources }}"
 
 hardening_ssh_permit_root_login: "prohibit-password"

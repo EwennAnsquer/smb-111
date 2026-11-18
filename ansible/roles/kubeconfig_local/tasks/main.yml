@@ -10,65 +10,84 @@
     path: "{{ local_kubeconfig }}"
     mode: '0600'
 
+# ---------- k9s ----------
 - name: Vérifier la présence de k9s sur la machine locale
-  ansible.builtin.command: which k9s
-  register: k9s_check
-  failed_when: false
-  changed_when: false
+  ansible.builtin.stat:
+    path: "{{ kubeconfig_local_k9s_dest }}/k9s"
+  register: kubeconfig_local_k9s_binary
+
+- name: Télécharger k9s (version et empreinte vérifiées)
+  ansible.builtin.get_url:
+    url: "{{ kubeconfig_local_k9s_url }}"
+    dest: "{{ kubeconfig_local_download_dir }}/k9s_{{ kubeconfig_local_k9s_version }}.tar.gz"
+    checksum: "sha256:{{ kubeconfig_local_k9s_sha256 }}"
+    mode: '0600'
+  when: not kubeconfig_local_k9s_binary.stat.exists
 
 - name: Installer k9s en local si nécessaire
   ansible.builtin.unarchive:
-    src: "{{ kubeconfig_local_k9s_url }}"
+    src: "{{ kubeconfig_local_download_dir }}/k9s_{{ kubeconfig_local_k9s_version }}.tar.gz"
     dest: "{{ kubeconfig_local_k9s_dest }}/"
-    remote_src: yes
-    extra_opts:
-      - --include=k9s
+    remote_src: true
+    include:
+      - k9s
     creates: "{{ kubeconfig_local_k9s_dest }}/k9s"
-  become: yes
-  when: k9s_check.rc != 0
+  become: true
+  when:
+    - not kubeconfig_local_k9s_binary.stat.exists
+    - not ansible_check_mode
 
+- name: Supprimer l'archive k9s téléchargée
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_download_dir }}/k9s_{{ kubeconfig_local_k9s_version }}.tar.gz"
+    state: absent
+
+# ---------- kubelogin ----------
 - name: Vérifier la présence de kubelogin
-  ansible.builtin.command: which kubectl-oidc_login
-  register: kubelogin_check
-  failed_when: false
-  changed_when: false
+  ansible.builtin.stat:
+    path: "{{ kubeconfig_local_kubelogin_dest }}/kubelogin"
+  register: kubeconfig_local_kubelogin_binary
 
 - name: Installer unzip (requis pour extraire kubelogin)
   ansible.builtin.apt:
     name: unzip
     state: present
-  become: yes
-  when: kubelogin_check.rc != 0
+  become: true
+  when: not kubeconfig_local_kubelogin_binary.stat.exists
+
+- name: Télécharger kubelogin (version et empreinte vérifiées)
+  ansible.builtin.get_url:
+    url: "{{ kubeconfig_local_kubelogin_url }}"
+    dest: "{{ kubeconfig_local_download_dir }}/kubelogin_{{ kubeconfig_local_kubelogin_version }}.zip"
+    checksum: "sha256:{{ kubeconfig_local_kubelogin_sha256 }}"
+    mode: '0600'
+  when: not kubeconfig_local_kubelogin_binary.stat.exists
 
 - name: Installer kubelogin (plugin kubectl oidc-login)
   ansible.builtin.unarchive:
-    src: "{{ kubeconfig_local_kubelogin_url }}"
-    dest: /usr/local/bin/
-    remote_src: yes
+    src: "{{ kubeconfig_local_download_dir }}/kubelogin_{{ kubeconfig_local_kubelogin_version }}.zip"
+    dest: "{{ kubeconfig_local_kubelogin_dest }}/"
+    remote_src: true
     include:
       - kubelogin
-    creates: /usr/local/bin/kubelogin
-  become: yes
-  when: kubelogin_check.rc != 0
+    creates: "{{ kubeconfig_local_kubelogin_dest }}/kubelogin"
+  become: true
+  when:
+    - not kubeconfig_local_kubelogin_binary.stat.exists
+    - not ansible_check_mode
 
-- name: Installer kubelogin (plugin kubectl oidc-login)
-  ansible.builtin.unarchive:
-    src: "{{ kubeconfig_local_kubelogin_url }}"
-    dest: /usr/local/bin/
-    remote_src: yes
-    include:
-      - kubelogin
-    creates: /usr/local/bin/kubelogin
-  become: yes
-  when: kubelogin_check.rc != 0
+- name: Supprimer l'archive kubelogin téléchargée
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_download_dir }}/kubelogin_{{ kubeconfig_local_kubelogin_version }}.zip"
+    state: absent
 
 - name: Exposer kubelogin comme plugin kubectl
   ansible.builtin.file:
-    src: /usr/local/bin/kubelogin
-    dest: /usr/local/bin/kubectl-oidc_login
+    src: "{{ kubeconfig_local_kubelogin_dest }}/kubelogin"
+    dest: "{{ kubeconfig_local_kubelogin_dest }}/kubectl-oidc_login"
     state: link
-  become: yes
-  when: kubelogin_check.rc != 0
+    force: true
+  become: true
 
 - name: Générer le kubeconfig OIDC
   ansible.builtin.template:
@@ -77,4 +96,3 @@
     mode: '0600'
   vars:
     kubeconfig_local_ca: "{{ (lookup('file', local_kubeconfig) | from_yaml).clusters[0].cluster['certificate-authority-data'] }}"
-

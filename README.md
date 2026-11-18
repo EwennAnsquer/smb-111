@@ -41,7 +41,7 @@ Avant de commencer, assurez-vous d'avoir installé les outils suivants sur votre
 - **[Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview)** : Hyperviseur cible (accès réseau et compte administrateur requis).
 - **[Terraform](https://www.terraform.io/)** (>= 1.10) : Pour le provisioning des VMs (verrouillage natif du backend S3).
 - **[Ansible](https://www.ansible.com/)** : Pour le déploiement et l'automatisation du cluster.
-- **Collections Ansible** : `community.general` (ufw) et `community.sops` (déchiffrement des variables), installées par `deploy.sh` depuis `ansible/requirements.yml` (accès réseau requis si elles sont absentes).
+- **Collections Ansible** : `community.general` (ufw) et `community.sops` (déchiffrement des variables), versions épinglées dans `ansible/requirements.yml` (`13.2.0` et `2.4.0`) et installées par `deploy.sh` (accès réseau requis si elles sont absentes).
 - **[jq](https://jqlang.github.io/jq/)** : Vérification du plan Terraform avant application.
 - **[K3s](https://k3s.io/)** : Distribution Kubernetes légère.
 - **[kubectl](https://kubernetes.io/docs/tasks/tools/)** : CLI officielle de Kubernetes.
@@ -263,6 +263,23 @@ Paramètres utiles :
 | `ALLOW_DESTRUCTIVE_PLAN` | `0` | Autorise un plan Terraform qui supprime des ressources (VMs, disques). |
 | `ASSUME_YES` | `0` | Désactive la confirmation du mode fresh. |
 | `SSH_WAIT_TIMEOUT` | `300` | Délai d'attente SSH en secondes, par hôte. |
+
+### Sécurité des nœuds (Ansible)
+
+Le playbook applique le durcissement **avant** l'installation de K3s, afin que le pare-feu soit actif dès le premier démarrage du cluster. L'accès reste limité au réseau local ; Tailscale passe par les pods de l'operator et n'ouvre aucun port sur les nœuds.
+
+Flux entrants UFW :
+
+- `22/tcp` : administration SSH depuis `hardening_admin_sources` (`192.168.1.0/24` par défaut) ;
+- `80/443/tcp` : Ingress Traefik (klipper-lb) depuis le réseau local uniquement ;
+- `6443/tcp` : API Kubernetes sur les masters depuis le réseau local ;
+- trafic inter-nœuds : API 6443, kubelet 10250, etcd 2379/2380, VXLAN 8472/UDP, iSCSI Longhorn 3260, métriques ;
+- CIDR pods/services K3s (`10.42.0.0/16`, `10.43.0.0/16`) ;
+- NodePorts `30000-32767` désactivés par défaut (`hardening_nodeport_enabled`).
+
+kube-vip est en mode ARP (`vip_arp=true`) : les annonces ARP ne sont pas filtrées par UFW et VRRP n'est pas utilisé. Les mises à jour utilisent `upgrade: safe` sans redémarrage automatique ; les correctifs de sécurité sont appliqués par `unattended-upgrades`, et les redémarrages kernel sont planifiés un nœud à la fois avec `maintenance.yml` (drain, reboot, uncordon).
+
+Les clés d'hôte SSH sont relevées par `preflight.yml` (TOFU, `ssh-keyscan`) puis vérifiées strictement (`host_key_checking = True`). k9s et kubelogin sont épinglés par version et empreinte SHA-256 dans `ansible/roles/kubeconfig_local/defaults/main.yml`.
 
 ### Suivre le déploiement Flux
 

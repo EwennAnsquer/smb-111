@@ -1,0 +1,4 @@
+---
+# Fichier chiffré SOPS : son contenu n'est pas lisible par ansible-lint.
+exclude_paths:
+  - ansible/group_vars/secrets.enc.yml

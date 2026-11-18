@@ -1,15 +1,19 @@
 ---
 - name: Vérifier la version de la CLI Flux installée
   ansible.builtin.command: flux version --client
-  register: flux_cli_check
+  register: flux_bootstrap_cli_check
   failed_when: false
   changed_when: false
   check_mode: false
 
-- name: "Télécharger et installer la CLI Flux {{ flux_version }}"
+- name: "Télécharger et installer la CLI Flux {{ flux_version }}"  # noqa: command-instead-of-module
   ansible.builtin.shell: |
+    set -o pipefail
     curl -s {{ flux_bootstrap_install_url }} | FLUX_VERSION={{ flux_version }} bash
-  when: flux_cli_check.rc != 0 or (flux_version not in flux_cli_check.stdout)
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when: flux_bootstrap_cli_check.rc != 0 or (flux_version not in flux_bootstrap_cli_check.stdout)
 
 - name: Déploiement de Flux sur le cluster
   environment:
@@ -17,25 +21,31 @@
   block:
     - name: Vérifier si Flux est déjà installé sur le cluster
       ansible.builtin.command: kubectl -n {{ flux_bootstrap_namespace }} get deploy source-controller
-      register: flux_installed_check
+      register: flux_bootstrap_installed_check
       failed_when: false
       changed_when: false
       check_mode: false
 
     - name: "Créer le namespace {{ flux_bootstrap_namespace }}"
       ansible.builtin.shell: |
+        set -o pipefail
         kubectl create namespace {{ flux_bootstrap_namespace }} --dry-run=client -o yaml | kubectl apply --validate=false -f -
-      register: ns_create
-      until: ns_create.rc == 0
+      args:
+        executable: /bin/bash
+      register: flux_bootstrap_ns_create
+      until: flux_bootstrap_ns_create.rc == 0
       retries: 10
       delay: 15
       changed_when: false
 
     - name: Créer le secret sops-age (déchiffrement SOPS par Flux)
       ansible.builtin.shell: |
+        set -o pipefail
         kubectl -n {{ flux_bootstrap_namespace }} create secret generic sops-age \
           --from-literal=age.agekey="$AGE_KEY" \
           --dry-run=client -o yaml | kubectl apply -f -
+      args:
+        executable: /bin/bash
       environment:
         AGE_KEY: "{{ sops_age_key }}"
       changed_when: false
@@ -43,7 +53,7 @@
 
     - name: Générer les secrets OIDC d'Authelia (une seule fois)
       ansible.builtin.shell: |
-        set -e
+        set -e -o pipefail
         kubectl create namespace authelia-system --dry-run=client -o yaml | kubectl apply -f -
         if kubectl -n authelia-system get secret authelia-oidc >/dev/null 2>&1; then
           exit 0
@@ -56,8 +66,8 @@
           --from-literal=identity_providers.oidc.hmac.key="$(openssl rand -hex 32)"
       args:
         executable: /bin/bash
-      register: authelia_oidc
-      changed_when: "'secret/authelia-oidc created' in authelia_oidc.stdout"
+      register: flux_bootstrap_authelia_oidc
+      changed_when: "'secret/authelia-oidc created' in flux_bootstrap_authelia_oidc.stdout"
 
     - name: Exécuter Flux Bootstrap Github (uniquement au tout premier déploiement)
       ansible.builtin.command: >
@@ -70,8 +80,7 @@
         --reconcile
       environment:
         GITHUB_TOKEN: "{{ github_token }}"
-      register: flux_bootstrap
+      register: flux_bootstrap_result
       changed_when: true
-      when: flux_installed_check.rc != 0
+      when: flux_bootstrap_installed_check.rc != 0
       no_log: true
-

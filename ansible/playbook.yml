@@ -1,14 +1,26 @@
 ---
 - name: Préparation de toutes les machines
   hosts: k3s_cluster
-  become: yes
+  become: true
   roles:
     - role: common
       tags: [common]
 
+# Le durcissement intervient AVANT l'installation de K3s : le pare-feu est
+# actif dès le premier démarrage du cluster, sans risquer de couper un flux
+# applicatif déjà établi. Les règles nécessaires à K3s (API, kubelet, etcd,
+# VXLAN, Longhorn) sont définies dans roles/hardening/defaults/main.yml.
+- name: Durcissement (pare-feu, SSH, mises à jour de sécurité)
+  hosts: k3s_cluster
+  become: true
+  serial: 1
+  roles:
+    - role: hardening
+      tags: [hardening]
+
 - name: Nœuds maîtres (control plane HA)
   hosts: masters
-  become: yes
+  become: true
   serial: 1
   roles:
     - role: k3s_server
@@ -18,14 +30,14 @@
 
 - name: Nœuds workers
   hosts: workers
-  become: yes
+  become: true
   roles:
     - role: k3s_agent
       tags: [k3s_agent]
 
 - name: Post-installation et récupération du kubeconfig
   hosts: masters[0]
-  become: yes
+  become: true
   roles:
     - role: k3s_postinstall
       tags: [k3s_postinstall]
@@ -33,22 +45,14 @@
 - name: Configuration locale
   hosts: localhost
   connection: local
-  become: no
+  become: false
   roles:
     - role: kubeconfig_local
       tags: [kubeconfig_local]
 
 - name: FluxCD
   hosts: masters[0]
-  become: yes
+  become: true
   roles:
     - role: flux_bootstrap
       tags: [flux]
-
-- name: Durcissement (pare-feu, SSH, mises à jour de sécurité)
-  hosts: k3s_cluster
-  become: yes
-  serial: 1
-  roles:
-    - role: hardening
-      tags: [hardening]

@@ -1,8 +1,19 @@
 ---
-kubeconfig_local_k9s_url: https://github.com/derailed/k9s/releases/latest/download/k9s_Linux_amd64.tar.gz
+# Outils locaux épinglés : versions et empreintes SHA-256 des archives
+# officielles (plateforme linux/amd64). Mettre à jour les deux valeurs
+# ensemble, puis relancer le playbook.
+kubeconfig_local_k9s_version: "v0.51.0"
+kubeconfig_local_k9s_url: "https://github.com/derailed/k9s/releases/download/{{ kubeconfig_local_k9s_version }}/k9s_Linux_amd64.tar.gz"
+kubeconfig_local_k9s_sha256: "c3752ad51a5a4015a113819c4eeb6e55a4d0e4b8e652494797532f6fc8161dd7"
 kubeconfig_local_k9s_dest: /usr/local/bin
-kubeconfig_local_kubelogin_url: https://github.com/int128/kubelogin/releases/latest/download/kubelogin_linux_amd64.zip
+
+kubeconfig_local_kubelogin_version: "v1.36.4"
+kubeconfig_local_kubelogin_url: "https://github.com/int128/kubelogin/releases/download/{{ kubeconfig_local_kubelogin_version }}/kubelogin_linux_amd64.zip"
+kubeconfig_local_kubelogin_sha256: "9e8baeb4905d35a301304af2548324997add512fe94ab20e65993d167212bf85"
+kubeconfig_local_kubelogin_dest: /usr/local/bin
+
+kubeconfig_local_download_dir: /tmp
+
 kubeconfig_local_oidc_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s-oidc"
 kubeconfig_local_oidc_issuer: https://auth.smb-111.azby.fr
 kubeconfig_local_oidc_client_id: kubernetes
-

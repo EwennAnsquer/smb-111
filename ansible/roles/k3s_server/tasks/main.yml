@@ -2,7 +2,7 @@
 - name: Vérifier si K3s est déjà installé sur ce master
   ansible.builtin.stat:
     path: /etc/systemd/system/k3s.service
-  register: k3s_already_installed
+  register: k3s_server_already_installed
 
 - name: Créer le dossier de configuration K3s
   ansible.builtin.file:
@@ -26,18 +26,20 @@
     owner: root
     group: root
     mode: '0644'
-  register: k3s_config
+  register: k3s_server_config
 
 - name: Redémarrer K3s pour appliquer la configuration (nœuds déjà installés)
   ansible.builtin.systemd:
     name: k3s
     state: restarted
-  when: k3s_already_installed.stat.exists and k3s_config.changed
+  when: k3s_server_already_installed.stat.exists and k3s_server_config.changed
 
-- name: Initialiser le cluster K3s (premier master uniquement)
+- name: Initialiser le cluster K3s (premier master uniquement)  # noqa: command-instead-of-module
   ansible.builtin.shell: |
+    set -o pipefail
     curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server
   args:
+    executable: /bin/bash
     creates: /etc/systemd/system/k3s.service
   when: inventory_hostname == groups['masters'][0]
 
@@ -50,14 +52,18 @@
 - name: Récupérer le jeton d'enregistrement K3s
   ansible.builtin.slurp:
     src: /var/lib/rancher/k3s/server/node-token
-  register: k3s_token
+  register: k3s_server_node_token
   when: inventory_hostname == groups['masters'][0]
   no_log: true
 
-- name: Joindre les autres masters au cluster
+- name: Joindre les autres masters au cluster  # noqa: command-instead-of-module
   ansible.builtin.shell: |
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_token']['content'] | b64decode | trim }}" sh -s - server
+    set -o pipefail
+    curl -sfL https://get.k3s.io \
+      | INSTALL_K3S_VERSION="{{ k3s_version }}" \
+        K3S_TOKEN="{{ hostvars[groups['masters'][0]]['k3s_server_node_token']['content'] | b64decode | trim }}" sh -s - server
   args:
+    executable: /bin/bash
     creates: /etc/systemd/system/k3s.service
   when: inventory_hostname != groups['masters'][0]
   no_log: true
@@ -72,13 +78,12 @@
 - name: Vérifier les permissions du kubeconfig administrateur
   ansible.builtin.stat:
     path: /etc/rancher/k3s/k3s.yaml
-  register: k3s_admin_kubeconfig
+  register: k3s_server_admin_kubeconfig
 
 - name: Échouer si le kubeconfig administrateur est lisible par d'autres
   ansible.builtin.assert:
     that:
-      - k3s_admin_kubeconfig.stat.mode == '0600'
+      - k3s_server_admin_kubeconfig.stat.mode == '0600'
     fail_msg: >-
-      /etc/rancher/k3s/k3s.yaml est en {{ k3s_admin_kubeconfig.stat.mode }},
+      /etc/rancher/k3s/k3s.yaml est en {{ k3s_server_admin_kubeconfig.stat.mode }},
       attendu 0600 (write-kubeconfig-mode).
-

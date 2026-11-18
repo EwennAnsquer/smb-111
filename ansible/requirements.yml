@@ -1,5 +1,10 @@
 ---
-# Collections requises par le playbook (ufw, plugin de vars SOPS)
+# Collections requises par le playbook (ufw, plugin de vars SOPS).
+# Versions épinglées : elles correspondent à la combinaison validée avec
+# ansible-core 2.21. Mettre à jour volontairement, puis relancer
+# `ansible-galaxy collection install -r requirements.yml --force`.
 collections:
   - name: community.general
+    version: "==13.2.0"
   - name: community.sops
+    version: "==2.4.0"

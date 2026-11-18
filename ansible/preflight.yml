@@ -1,4 +1,11 @@
 ---
+# Préflight : disponibilité de SSH et provisionnement des clés d'hôte.
+#
+# Modèle TOFU (Trust On First Use) : les clés sont relevées avec ssh-keyscan
+# au premier contact, sur le réseau d'administration. ansible.cfg active
+# ensuite la vérification stricte (host_key_checking = True) pour tous les
+# playbooks. Pour un niveau de sécurité supérieur, comparer les empreintes
+# affichées par `ssh-keygen -lf` avec celles des VMs avant le premier contact.
 - name: Vérifier la disponibilité de SSH sur les VMs
   hosts: k3s_cluster
   gather_facts: false
@@ -10,3 +17,40 @@
         port: 22
         timeout: "{{ ssh_wait_timeout | default(300) }}"
       changed_when: false
+
+    - name: Créer le dossier ~/.ssh sur la machine de déploiement
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.ssh"
+        state: directory
+        mode: '0700'
+      # Le dossier local doit exister même en --check pour permettre la suite.
+      check_mode: false
+
+    - name: Relever les clés d'hôte SSH des nœuds
+      ansible.builtin.command:
+        argv:
+          - ssh-keyscan
+          - -T
+          - "5"
+          - "{{ ansible_host }}"
+      register: preflight_ssh_keyscan
+      changed_when: false
+      check_mode: false
+      retries: 10
+      delay: 3
+      until: >-
+        preflight_ssh_keyscan.stdout_lines
+        | select('match', '^[^#]') | list | length > 0
+
+    - name: Enregistrer les clés d'hôte SSH (TOFU)
+      ansible.builtin.known_hosts:
+        name: "{{ ansible_host }}"
+        key: "{{ item }}"
+        path: "{{ lookup('env', 'HOME') }}/.ssh/known_hosts"
+      loop: >-
+        {{ preflight_ssh_keyscan.stdout_lines
+        | select('match', '^[^#]') | list }}
+      loop_control:
+        label: "{{ item.split()[1] | default('clé') }}"
+      # Provisionnement local indispensable avant la vérification stricte.
+      check_mode: false

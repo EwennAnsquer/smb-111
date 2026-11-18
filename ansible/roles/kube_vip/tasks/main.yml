@@ -13,7 +13,7 @@
     group: root
     mode: '0644'
 
-- name: "Attendre que la VIP ({{ vip_ip }}) soit joignable sur le port 6443"
+- name: "Attendre la disponibilité de la VIP sur le port 6443 ({{ vip_ip }})"
   ansible.builtin.wait_for:
     host: "{{ vip_ip }}"
     port: 6443
