@@ -39,9 +39,10 @@ Si `infra-controllers` échoue, les deux suivantes restent en attente (`dependen
 Avant de commencer, assurez-vous d'avoir installé les outils suivants sur votre machine d'administration (`devops`) :
 
 - **[Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview)** : Hyperviseur cible (accès réseau et compte administrateur requis).
-- **[Terraform](https://www.terraform.io/)** (>= 1.0) : Pour le provisioning des VMs.
+- **[Terraform](https://www.terraform.io/)** (>= 1.10) : Pour le provisioning des VMs (verrouillage natif du backend S3).
 - **[Ansible](https://www.ansible.com/)** : Pour le déploiement et l'automatisation du cluster.
 - **Collections Ansible** : `community.general` (ufw) et `community.sops` (déchiffrement des variables), installées par `deploy.sh` depuis `ansible/requirements.yml` (accès réseau requis si elles sont absentes).
+- **[jq](https://jqlang.github.io/jq/)** : Vérification du plan Terraform avant application.
 - **[K3s](https://k3s.io/)** : Distribution Kubernetes légère.
 - **[kubectl](https://kubernetes.io/docs/tasks/tools/)** : CLI officielle de Kubernetes.
 - **[k9s](https://k9scli.io/)** : Interface TUI pour gérer le cluster.
@@ -200,14 +201,16 @@ Flux déploie depuis GitHub : si l'arbre Git contient des modifications non pous
 
 ### Backend Terraform distant
 
-Le state Terraform est stocké dans un backend S3/MinIO avec verrouillage natif (`use_lockfile`). La configuration du bucket reste hors dépôt :
+Le state Terraform est stocké dans le bucket MinIO `smb-111-terraform-state` (`https://minio-backend.azby.fr`, versioning activé) avec verrouillage natif (`use_lockfile`). La configuration du bucket reste hors dépôt :
 
 ```bash
 cp terraform/backend.hcl.example terraform/backend.hcl
-# Adapter bucket/endpoint, puis exporter AWS_ACCESS_KEY_ID et AWS_SECRET_ACCESS_KEY
+# Adapter bucket/endpoint si nécessaire
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
 ```
 
-Lors du premier passage depuis le state local, sauvegarder puis migrer :
+En cas de nouvelle migration depuis un state local, sauvegarder puis migrer :
 
 ```bash
 cd terraform
@@ -216,7 +219,9 @@ terraform init -migrate-state -backend-config=backend.hcl
 terraform state list
 ```
 
-Le state local n'est supprimé qu'après vérification. Les applications utilisent `-lock-timeout=5m` pour attendre un verrou concurrent.
+Le state local n'est supprimé qu'après vérification. Les applications utilisent `-lock-timeout=5m` pour attendre un verrou concurrent. `deploy.sh` refuse désormais un plan qui supprime des ressources, sauf avec `ALLOW_DESTRUCTIVE_PLAN=1`.
+
+> ⚠️ Le premier plan après l'ajout du checksum et le passage en `raw` remplace les VMs : le fichier Debian est recréé et les disques des workers passent de `qcow2` à `raw`. Ne lancez pas `deploy.sh` avant le rebuild prévu ; le garde-fou bloque l'application par défaut.
 
 ### Stockage et dimensionnement
 
@@ -255,6 +260,7 @@ Paramètres utiles :
 |---|---|---|
 | `FRESH_INSTALL` | `0` | Supprime les `gotk-*` et force un nouveau bootstrap Flux (confirmation demandée). |
 | `ALLOW_DIRTY` | `0` | Autorise un arbre Git sale ; les changements locaux ne seront pas déployés par Flux. |
+| `ALLOW_DESTRUCTIVE_PLAN` | `0` | Autorise un plan Terraform qui supprime des ressources (VMs, disques). |
 | `ASSUME_YES` | `0` | Désactive la confirmation du mode fresh. |
 | `SSH_WAIT_TIMEOUT` | `300` | Délai d'attente SSH en secondes, par hôte. |
 

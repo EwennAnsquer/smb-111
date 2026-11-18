@@ -7,13 +7,16 @@ bucket = "smb-111-terraform-state"
 
 # Endpoint S3 (décommenter et adapter selon le fournisseur).
 # OVH Object Storage :
-# endpoints {
+# endpoints = {
 #   s3 = "https://s3.gra.io.cloud.ovh.net"
 # }
 # MinIO auto-hébergé :
-# endpoints {
-#   s3 = "http://192.168.1.10:9000"
+# endpoints = {
+#   s3 = "https://minio-backend.azby.fr"
 # }
+
+# MinIO nécessite le style de chemin (path-style) plutôt que virtual-hosted.
+use_path_style = true
 
 # Options nécessaires pour un backend S3-compatible (MinIO, OVH...).
 skip_credentials_validation = true
@@ -21,7 +24,9 @@ skip_region_validation      = true
 skip_requesting_account_id  = true
 skip_s3_checksum            = true
 
-# Mettre à false si le backend ne gère pas le chiffrement côté serveur.
+# Chiffrement côté serveur : laisser false si le backend ne propose pas SSE-S3
+# (MinIO AIStor Free tier refuse SSE-S3). Le state reste protégé par les
+# permissions du bucket et le versioning.
 # encrypt = true
 
 # Alternative PostgreSQL (non utilisée par défaut) :

@@ -13,6 +13,11 @@ if [ ! -f "$SOPS_AGE_KEY_FILE" ]; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Erreur : jq est requis pour vérifier le plan Terraform."
+  exit 1
+fi
+
 # Options du script
 ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 ASSUME_YES="${ASSUME_YES:-0}"
@@ -49,7 +54,8 @@ fi
 # Nettoyage automatique des fichiers temporaires à la fin du script
 TMP_VARS=$(mktemp --suffix=.tfvars.json)
 TMP_ANSIBLE_VARS=$(mktemp --suffix=.yml)
-trap 'rm -f "$TMP_VARS" "$TMP_ANSIBLE_VARS"' EXIT
+TMP_PLAN=$(mktemp --suffix=.tfplan)
+trap 'rm -f "$TMP_VARS" "$TMP_ANSIBLE_VARS" "$TMP_PLAN"' EXIT
 
 # 0. Flux synchronise depuis GitHub : tout doit être poussé avant le bootstrap
 echo -e "Vérification que le dépôt est synchronisé avec GitHub..."
@@ -126,7 +132,17 @@ fi
 terraform init -backend-config=backend.hcl
 
 sops -d secrets.enc.tfvars.json >"$TMP_VARS"
-terraform apply -var-file="$TMP_VARS" -lock-timeout=5m -auto-approve
+terraform plan -var-file="$TMP_VARS" -lock-timeout=5m -input=false -out="$TMP_PLAN"
+
+# Un plan qui supprime des ressources (VMs, disques) doit être explicitement autorisé.
+if [ "${ALLOW_DESTRUCTIVE_PLAN:-0}" != "1" ] &&
+  terraform show -json "$TMP_PLAN" | jq -e '[.resource_changes[]? | select(.change.actions | index("delete"))] | length > 0' >/dev/null; then
+  echo "Erreur : le plan Terraform supprime des ressources (VMs ou disques inclus)." >&2
+  echo "Après sauvegarde, relancez avec ALLOW_DESTRUCTIVE_PLAN=1 si c'est intentionnel." >&2
+  exit 1
+fi
+
+terraform apply -lock-timeout=5m -auto-approve "$TMP_PLAN"
 
 # On se place dans le dossier ansible en avance pour avoir accès à inventory.ini
 cd "$PROJECT_DIR/ansible" || exit 1

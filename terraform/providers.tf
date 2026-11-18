@@ -8,9 +8,8 @@ terraform {
   # Le verrouillage natif S3 évite une table DynamoDB (Terraform >= 1.10).
   backend "s3" {
     key          = "smb-111/terraform.tfstate"
-    region       = "gra"
+    region       = "us-east-1"
     use_lockfile = true
-    encrypt      = true
   }
 
   required_providers {
