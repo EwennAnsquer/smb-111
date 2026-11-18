@@ -118,7 +118,7 @@ Puis, dans le même commit : `appVersion` et `version` dans `chart/Chart.yaml`, 
 | `ingress.*` | désactivé | `host`, `className`, `tls.enabled`, `tls.secretName`, `annotations` |
 | `podDisruptionBudget.enabled` | `true` | garde au moins 1 pod pendant les maintenances de nœuds |
 | `topologySpreadConstraints` | par nœud | répartit les pods sur des nœuds différents si possible |
-| `networkPolicy.enabled` | `false` | appli : entrée HTTP, sortie DNS + Redis seulement ; Redis : entrée depuis l'appli seulement |
+| `networkPolicy.enabled` | `true` | appli : entrée HTTP depuis Traefik (et même namespace), sortie DNS + Redis seulement ; Redis : entrée depuis l'appli seulement |
 
 Sans Redis (`redis.enabled=false` et pas d'`externalRedis`), le chart repasse en **mode une instance** : 1 réplique, stratégie `Recreate`, volume pour les thèmes. Demander plus d'une réplique dans ce mode fait échouer l'installation avec un message explicite.
 

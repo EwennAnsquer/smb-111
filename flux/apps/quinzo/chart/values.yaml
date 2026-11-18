@@ -137,9 +137,14 @@ topologySpreadConstraints:
     whenUnsatisfiable: ScheduleAnyway
 
 networkPolicy:
-  enabled: false
-  # Sources autorisées vers Quinzo. Vide = toutes.
-  ingressFrom: []
+  enabled: true
+  # Sources autorisées vers Quinzo. Traefik termine le TLS et applique
+  # l'ForwardAuth Authelia ; le podSelector {} garde les tests Helm fonctionnels.
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: traefik-system
+    - podSelector: {}
 
 serviceAccount:
   create: true

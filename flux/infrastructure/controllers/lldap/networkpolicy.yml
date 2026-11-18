@@ -1,0 +1,87 @@
+---
+# Isolation du namespace lldap-system.
+# - l'interface web (17170) n'est joignable que par Traefik ;
+# - l'annuaire LDAP (3890) n'est joignable que par Authelia ;
+# - le CronJob de bootstrap (même namespace) utilise l'API HTTP 17170.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: lldap-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Résolution DNS vers CoreDNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: lldap-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lldap-ingress
+  namespace: lldap-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: lldap
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik-system
+      ports:
+        - protocol: TCP
+          port: 17170
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: authelia-system
+      ports:
+        - protocol: TCP
+          port: 3890
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 17170
+---
+# Le bootstrap tourne dans le même namespace et doit joindre l'API HTTP de lldap.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lldap-bootstrap-egress
+  namespace: lldap-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lldap
+      ports:
+        - protocol: TCP
+          port: 17170

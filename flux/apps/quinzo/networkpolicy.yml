@@ -1,0 +1,13 @@
+---
+# Isolation du namespace quinzo. La NetworkPolicy du chart autorise Traefik et
+# les pods du même namespace (tests Helm) ; ce default-deny couvre tout autre
+# pod qui serait créé dans le namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: quinzo
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress

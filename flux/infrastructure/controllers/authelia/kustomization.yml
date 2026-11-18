@@ -5,3 +5,4 @@ resources:
   - helmrepo.yml
   - helmrelease.yml
   - secret.enc.yml
+  - networkpolicy.yml
