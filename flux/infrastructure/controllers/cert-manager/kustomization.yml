@@ -8,4 +8,5 @@ resources:
   - ovh-helmrelease.yml
   - ovh-credentials.enc.yml
   - rbac-webhook-ovh.yml
+  - networkpolicy.yml
 

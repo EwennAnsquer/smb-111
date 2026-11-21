@@ -1,0 +1,77 @@
+---
+# Isolation du namespace cert-manager-system.
+# Les webhooks d'admission sont appelés par l'API server depuis l'IP du nœud
+# (pas depuis un pod) : leurs ports restent donc ouverts à toutes les sources.
+# L'egress est limité au DNS, à l'API Kubernetes et à Internet en 443
+# (ACME Let's Encrypt et API OVH).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: cert-manager-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: cert-manager-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cert-manager-allow
+  namespace: cert-manager-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Webhook cert-manager (10250) et webhook OVH (8443) : API server.
+    # 443 couvre le port du Service si le CNI applique la politique avant DNAT.
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 10250
+        - protocol: TCP
+          port: 8443
+    # Métriques (scrape éventuel par la stack VictoriaMetrics).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring-system
+      ports:
+        - protocol: TCP
+          port: 9402
+  egress:
+    # Controller, cainjector et webhooks entre eux.
+    - to:
+        - podSelector: {}
+    # API Kubernetes (service kubernetes.default.svc, DNAT vers 6443).
+    - ports:
+        - protocol: TCP
+          port: 6443
+    # ACME Let's Encrypt et API OVH.
+    - ports:
+        - protocol: TCP
+          port: 443

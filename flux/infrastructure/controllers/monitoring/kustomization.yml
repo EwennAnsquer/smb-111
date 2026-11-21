@@ -13,4 +13,5 @@ resources:
   - loki-helmrelease.yml
   - alloy-helmrepo.yml
   - alloy-helmrelease.yml
+  - networkpolicy.yml
 

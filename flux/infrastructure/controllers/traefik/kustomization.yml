@@ -6,4 +6,5 @@ resources:
   - namespace.yml
   - helmrepo.yml
   - helmrelease.yml
+  - networkpolicy.yml
 

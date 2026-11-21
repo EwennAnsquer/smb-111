@@ -1,0 +1,71 @@
+---
+# Isolation du namespace monitoring-system.
+# L'egress reste ouvert dans ce lot : vmagent scrape l'API, les kubelets, etcd,
+# CoreDNS, Longhorn et les pods du cluster, et Grafana/Alertmanager ont besoin
+# de sorties Internet. Restreindre l'egress demande une matrice dédiée.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: monitoring-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Trafic interne : scrapes, Loki, datasources Grafana, vmalert, Alertmanager.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: monitoring-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik
+  namespace: monitoring-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik-system
+      ports:
+        - protocol: TCP
+          port: 80     # port du Service Grafana
+        - protocol: TCP
+          port: 3000   # Grafana
+        - protocol: TCP
+          port: 8428   # vmsingle (vmui)
+        - protocol: TCP
+          port: 8080   # vmalert
+        - protocol: TCP
+          port: 9093   # Alertmanager
+---
+# Webhook d'admission de l'opérateur VictoriaMetrics, appelé par l'API server.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-operator-webhook
+  namespace: monitoring-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: victoria-metrics-operator
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 9443

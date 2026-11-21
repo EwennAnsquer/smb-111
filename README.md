@@ -32,6 +32,14 @@ infra-controllers  →  infra-configs  →  apps
 
 Si `infra-controllers` échoue, les deux suivantes restent en attente (`dependency ... is not ready`).
 
+### Sécurité réseau et Pod Security Admission
+
+Les namespaces portent des labels PSA (`baseline` pour les applications,
+`privileged` pour les composants système) et les flux inter-namespaces sont
+restreints par des NetworkPolicies. La matrice des flux, les exceptions
+(monitoring, Longhorn, Traefik, Tailscale) et les commandes de vérification sont
+décrites dans [docs/securite-reseau.md](docs/securite-reseau.md).
+
 ---
 
 ## 🛠️ OUTILS ET PRÉREQUIS

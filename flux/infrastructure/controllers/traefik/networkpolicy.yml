@@ -1,0 +1,45 @@
+---
+# Traefik est le point d'entrée du cluster : il doit accepter le trafic externe
+# (klipper-lb / kube-vip, puis NodePort éventuel) sur 8000/8443. Le default-deny
+# empêche en revanche l'accès aux autres ports (API 8080, métriques 9100).
+# L'egress reste ouvert dans ce lot (backends dynamiques + API Kubernetes).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: traefik-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traefik-allow
+  namespace: traefik-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Trafic externe (source non-pod, via svclb/kube-vip ou NodePort).
+    # 80/443 couvrent les ports du Service si le CNI applique la politique
+    # avant DNAT ; 8000/8443 sont les ports des conteneurs.
+    - ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8443
+    # Métriques éventuelles.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring-system
+      ports:
+        - protocol: TCP
+          port: 9100
