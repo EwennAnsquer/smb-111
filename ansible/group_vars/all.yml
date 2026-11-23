@@ -8,12 +8,12 @@ target_path: "flux/clusters/prod"
 
 # Version de la CLI Flux (sans le "v"). Le bootstrap installe les
 # composants du cluster dans la même version que la CLI.
-flux_version: "2.9.5"
+flux_version: "2.10.1"
 
 # --- K3s ---
 # Laisser vide pour installer la dernière version stable,
 # ou épingler par exemple : "v1.33.4+k3s1"
-k3s_version: "v1.37.0+k3s1"
+k3s_version: "v1.37.2+k3s1"
 vip_ip: "192.168.1.210"
 vip_interface: "eth0"
 
@@ -26,7 +26,7 @@ k3s_upgrade_drain_masters: true
 local_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config-k3s"
 
 # --- Secrets ---
-# github_token : dans group_vars/secrets.enc.yml (chiffré SOPS)
+# github_token : dans ansible/group_vars/secrets.enc.yml (chiffré SOPS)
 #   github_token: "ghp_..."
 # sops_age_key : injecté automatiquement par deploy.sh depuis
 #   ~/.config/sops/age/keys.txt (rien à stocker dans le dépôt)

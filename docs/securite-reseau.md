@@ -169,8 +169,8 @@ kubectl apply --dry-run=server \
 kubectl get ns -o custom-columns='NAME:.metadata.name,ENFORCE:.metadata.labels.pod-security\.kubernetes\.io/enforce,AUDIT:.metadata.labels.pod-security\.kubernetes\.io/audit'
 
 # Test de rejet (doit être refusé en baseline)
-kubectl -n quinzo run psa-test --image=busybox --restart=Never --dry-run=server \
-  --overrides='{"spec":{"containers":[{"name":"psa-test","image":"busybox","securityContext":{"privileged":true}}]}}'
+kubectl -n quinzo run psa-test --image=busybox:1.38.0 --restart=Never --dry-run=server \
+  --overrides='{"spec":{"containers":[{"name":"psa-test","image":"busybox:1.38.0","securityContext":{"privileged":true}}]}}'
 ```
 
 ```bash

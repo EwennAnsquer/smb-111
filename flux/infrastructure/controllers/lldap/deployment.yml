@@ -28,9 +28,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: lldap
-          # Image officielle. `stable` = dernière version stable ; à épingler sur un tag/digest
-          # (ex. via Renovate) une fois que tout fonctionne.
-          image: lldap/lldap:stable
+          # Image officielle épinglée. Mettre à jour le tag via Renovate.
+          image: lldap/lldap:v0.6.3
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
