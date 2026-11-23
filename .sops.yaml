@@ -1,9 +1,11 @@
+# Règles SOPS limitées aux fichiers réellement chiffrés du dépôt.
+# Les autres YAML (gotk-components.yaml, manifests Flux, charts) ne doivent
+# jamais être chiffrés par erreur.
 creation_rules:
-  - path_regex: ansible/.*\.(yml|yaml)$
+  - path_regex: ^ansible/.*\.enc\.ya?ml$
     age: "age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a"
-  - path_regex: .*\.(yml|yaml)$
+  - path_regex: ^terraform/secrets\.enc\.tfvars\.json$
+    age: "age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a"
+  - path_regex: ^flux/.*\.enc\.ya?ml$
     encrypted_regex: '^(data|stringData)$'
     age: "age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a"
-  - path_regex: .*\.(tfvars|json)$
-    age: "age1vh8zt4kg9j9acsx3jwxqz3yyssg25qtx7u0chaymjpr6k2vzq39szc4y5a"
-

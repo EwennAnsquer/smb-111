@@ -51,6 +51,7 @@ Avant de commencer, assurez-vous d'avoir installé les outils suivants sur votre
 - **[Ansible](https://www.ansible.com/)** : Pour le déploiement et l'automatisation du cluster.
 - **Collections Ansible** : `community.general` (ufw) et `community.sops` (déchiffrement des variables), versions épinglées dans `ansible/requirements.yml` (`13.2.0` et `2.4.0`) et installées par `deploy.sh` (accès réseau requis si elles sont absentes).
 - **[jq](https://jqlang.github.io/jq/)** : Vérification du plan Terraform avant application.
+- **`nc`** (`netcat-openbsd`) : Tests de connectivité réseau utilisés dans [docs/securite-reseau.md](docs/securite-reseau.md).
 - **[K3s](https://k3s.io/)** : Distribution Kubernetes légère.
 - **[kubectl](https://kubernetes.io/docs/tasks/tools/)** : CLI officielle de Kubernetes.
 - **[k9s](https://k9scli.io/)** : Interface TUI pour gérer le cluster.
@@ -158,6 +159,29 @@ Les fichiers `*.enc.*` sont exclus dans `.gitleaks.toml` (contenu SOPS en base64
 
 > ⚠️ Un ancien secret Longhorn (basic auth), supprimé depuis, subsiste dans l'historique Git (commit `139722f`). Il est explicitement allowlisté dans `.gitleaks.toml` car l'historique n'est pas réécrit ici. Régénérer ce basic auth s'il est encore utilisé et envisager une réécriture d'historique (`git filter-repo`) dans une tâche dédiée.
 
+### Intégration continue
+
+Le workflow `.github/workflows/ci.yml` s'exécute sur chaque pull request et sur `main` :
+
+- `terraform fmt -check -recursive` et `terraform validate` (`init -backend=false`) ;
+- `kubectl kustomize` sur les trois racines Flux (`infrastructure/controllers`, `infrastructure/configs`, `apps`) ;
+- `helm lint` et `helm template` de chaque chart/HelmRelease ;
+- `yamllint`, `ansible-lint` et `ansible-playbook --syntax-check` ;
+- déchiffrement `sops -d` de chaque fichier `.enc.*`, sans afficher les valeurs ;
+- `gitleaks`.
+
+Le contrôle SOPS utilise le secret GitHub `SOPS_AGE_KEY`, qui contient la clé privée age. Il se crée une seule fois :
+
+```bash
+gh secret set SOPS_AGE_KEY < ~/.config/sops/age/keys.txt
+```
+
+Les PR issues de forks ne reçoivent pas ce secret : le contrôle SOPS est alors ignoré, mais `gitleaks` continue de s'exécuter.
+
+### Mises à jour automatisées (Renovate)
+
+`renovate.json` configure Renovate pour les charts Helm des `HelmRelease`, les images Kubernetes (`lldap`, `python`, `busybox`), les GitHub Actions, Terraform et les collections Ansible. L'application Renovate doit être activée sur le dépôt. Les mises à jour majeures demandent une validation via le tableau de bord ; Flux et `gotk-components.yaml` restent gérés manuellement.
+
 ### Rotation de la clé age
 
 À réaliser sur une machine disposant de l'ancienne clé. La clé privée ne doit jamais être commitée.
@@ -168,7 +192,7 @@ Les fichiers `*.enc.*` sont exclus dans `.gitleaks.toml` (contenu SOPS en base64
    chmod 600 ~/.config/sops/age/keys.new.txt
    age-keygen -y ~/.config/sops/age/keys.new.txt
    ```
-2. Remplacer le destinataire `age:` dans `.sops.yaml` par la nouvelle clé publique.
+2. Remplacer le destinataire `age:` dans `.sops.yaml` par la nouvelle clé publique. Les règles sont limitées à `ansible/`, `terraform/secrets.enc.tfvars.json` et `flux/**/*.enc.*` : ajouter une règle si un nouveau chemin chiffré est introduit.
 3. Rechiffrer les fichiers : `sops updatekeys` a besoin de l'ancienne clé pour déchiffrer la clé de données et de la nouvelle pour la réécrire. Utiliser temporairement un fichier contenant les deux clés privées :
    ```bash
    cat ~/.config/sops/age/keys.txt ~/.config/sops/age/keys.new.txt > /tmp/age-rotation.txt
