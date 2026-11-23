@@ -20,7 +20,7 @@ spec:
     spec:
       chart: victoria-metrics-k8s-stack
       # Versions disponibles : helm search repo victoria-metrics/victoria-metrics-k8s-stack --versions
-      version: '0.95.0'
+      version: '0.99.0'
       sourceRef:
         kind: HelmRepository
         name: victoria-metrics
