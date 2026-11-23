@@ -149,12 +149,12 @@ spec:
 kubectl apply -f restore-test-grafana.yml
 
 kubectl run restore-test-grafana \
-  --image=busybox:1.36 --restart=Never \
+  --image=busybox:1.38.0 --restart=Never \
   --overrides='{
     "spec": {
       "containers": [{
         "name": "restore-test-grafana",
-        "image": "busybox:1.36",
+        "image": "busybox:1.38.0",
         "command": ["sh", "-c", "ls -la /data && du -sh /data && sleep 300"],
         "volumeMounts": [{"name": "data", "mountPath": "/data"}]
       }],

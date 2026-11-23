@@ -1,0 +1,17 @@
+---
+# Configuration yamllint du dépôt.
+# Les règles de style trop strictes sont désactivées pour ne pas réécrire
+# l'existant ; les fichiers générés ou chiffrés sont ignorés.
+extends: default
+
+rules:
+  line-length: disable
+  empty-lines: disable
+  document-start: disable
+  truthy:
+    allowed-values: ["true", "false", "on"]
+
+ignore: |
+  flux/clusters/prod/gotk-components.yaml
+  flux/apps/quinzo/chart/templates/
+  **/*.enc.*

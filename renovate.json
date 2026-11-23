@@ -1,0 +1,65 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 5am on monday"],
+  "flux": {
+    "managerFilePatterns": ["/flux/.+\\.ya?ml$/"]
+  },
+  "kubernetes": {
+    "managerFilePatterns": ["/flux/.+\\.ya?ml$/"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Version de la CLI Flux utilisée par Ansible",
+      "managerFilePatterns": ["/^ansible/group_vars/all\\.yml$/"],
+      "matchStrings": ["flux_version:\\s*\"(?<currentValue>[0-9.]+)\""],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "fluxcd/flux2",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Version de K3s utilisée par Ansible",
+      "managerFilePatterns": ["/^ansible/group_vars/all\\.yml$/"],
+      "matchStrings": ["k3s_version:\\s*\"v(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "k3s-io/k3s",
+      "extractVersionTemplate": "^v?(?<version>.+)$",
+      "versioningTemplate": "loose"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Flux est mis à jour manuellement (CLI + gotk-components)",
+      "matchFileNames": ["flux/clusters/prod/gotk-components.yaml"],
+      "enabled": false
+    },
+    {
+      "description": "Épingler les GitHub Actions par SHA",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    },
+    {
+      "description": "Regrouper les mises à jour mineures et correctives",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "mises à jour mineures"
+    },
+    {
+      "description": "Les majeures nécessitent une validation manuelle",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Ne pas proposer de changement d'apiVersion Kubernetes",
+      "matchManagers": ["kubernetes"],
+      "matchDatasources": ["kubernetes-api"],
+      "enabled": false
+    }
+  ]
+}

@@ -15,7 +15,7 @@ spec:
     spec:
       chart: loki
       # Versions disponibles : helm search repo grafana-community/loki --versions
-      version: '18.x.x'
+      version: '18.17.1'
       sourceRef:
         kind: HelmRepository
         name: grafana-community
@@ -38,8 +38,9 @@ spec:
         replication_factor: 1   # un seul pod : pas de réplication possible
 
       storage:
-        type: filesystem   # stockage sur disque local (le PVC Longhorn ci-dessous),
-                            # pas de S3/GCS/Azure à faire tourner en plus
+        # Stockage sur disque local (le PVC Longhorn ci-dessous),
+        # pas de S3/GCS/Azure à faire tourner en plus.
+        type: filesystem
 
       # Schéma d'indexation : TSDB est le format recommandé actuellement.
       schemaConfig:

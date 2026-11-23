@@ -50,7 +50,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: bootstrap
-              image: lldap/lldap:stable       # même image que le serveur (contient bootstrap.sh)
+              image: lldap/lldap:v0.6.3       # même image que le serveur (contient bootstrap.sh)
               command: ["/app/bootstrap.sh"]  # on court-circuite l'entrypoint du serveur
               securityContext:
                 allowPrivilegeEscalation: false

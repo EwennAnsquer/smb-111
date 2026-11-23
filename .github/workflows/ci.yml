@@ -1,0 +1,202 @@
+---
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.15.8"
+  KUBECTL_VERSION: "v1.36.3"
+  HELM_VERSION: "v3.22.0"
+  YQ_VERSION: "v4.53.3"
+  SOPS_VERSION: "3.13.3"
+  GITLEAKS_VERSION: "8.30.1"
+  ANSIBLE_LINT_VERSION: "26.11.0"
+  YAMLLINT_VERSION: "1.38.0"
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      - name: Vérifier le formatage
+        run: terraform fmt -check -recursive
+      - name: Initialiser sans backend
+        working-directory: terraform
+        run: terraform init -backend=false -input=false
+      - name: Valider la configuration
+        working-directory: terraform
+        run: terraform validate
+
+  kubernetes:
+    name: Kubernetes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+      - name: Construire les kustomizations
+        run: |
+          set -euo pipefail
+          for d in flux/infrastructure/controllers flux/infrastructure/configs flux/apps; do
+            echo "::group::kubectl kustomize $d"
+            kubectl kustomize "$d" >/dev/null
+            echo "::endgroup::"
+          done
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Installer yq
+        run: |
+          curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
+            -o /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+          yq --version
+      - name: Vérifier les charts Helm
+        run: |
+          set -euo pipefail
+
+          # Associer chaque HelmRepository à son URL, par namespace/nom.
+          declare -A REPOS
+          while IFS=$'\t' read -r ns name url; do
+            REPOS["$ns/$name"]="$url"
+          done < <(
+            while IFS= read -r f; do
+              yq -r 'select(.kind == "HelmRepository") | [.metadata.namespace, .metadata.name, .spec.url] | @tsv' "$f"
+            done < <(find flux -name '*helmrepo.yml' -print)
+          )
+
+          while IFS= read -r f; do
+            kind=$(yq -r '.kind // ""' "$f")
+            [ "$kind" = "HelmRelease" ] || continue
+
+            name=$(yq -r '.metadata.name' "$f")
+            ns=$(yq -r '.metadata.namespace' "$f")
+            chart=$(yq -r '.spec.chart.spec.chart' "$f")
+            version=$(yq -r '.spec.chart.spec.version // ""' "$f")
+            src_ns=$(yq -r '.spec.chart.spec.sourceRef.namespace // .metadata.namespace' "$f")
+            src_name=$(yq -r '.spec.chart.spec.sourceRef.name' "$f")
+            values=$(mktemp)
+
+            echo "::group::HelmRelease $ns/$name ($chart ${version:-local})"
+            yq -r '.spec.values // {}' "$f" > "$values"
+
+            if [[ "$chart" == ./* ]]; then
+              helm lint "$chart" -f "$values" --namespace "$ns"
+              helm template "$name" "$chart" -f "$values" --namespace "$ns" >/dev/null
+            else
+              repo="${REPOS["$src_ns/$src_name"]:-}"
+              if [ -z "$repo" ]; then
+                echo "::error::HelmRepository $src_ns/$src_name introuvable pour $f"
+                rm -f "$values"
+                exit 1
+              fi
+
+              tmp=$(mktemp -d)
+              if [[ "$repo" == oci://* ]]; then
+                helm pull "$repo/$chart" --version "$version" --untar --untardir "$tmp"
+              else
+                helm pull "$chart" --repo "$repo" --version "$version" --untar --untardir "$tmp"
+              fi
+              helm lint "$tmp/$chart" -f "$values" --namespace "$ns"
+              helm template "$name" "$tmp/$chart" -f "$values" --namespace "$ns" >/dev/null
+              rm -rf "$tmp"
+            fi
+
+            rm -f "$values"
+            echo "::endgroup::"
+          done < <(
+            find flux \
+              \( -path '*/chart/templates/*' -o -path '*/chart/charts/*' \) -prune -o \
+              \( -name '*.yml' -o -name '*.yaml' \) -print | sort
+          )
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Installer yamllint et ansible-lint
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "yamllint==${YAMLLINT_VERSION}" "ansible-lint==${ANSIBLE_LINT_VERSION}"
+      - name: Installer les collections Ansible
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+      - name: Valider renovate.json
+        run: jq empty renovate.json
+      - name: yamllint
+        run: yamllint -c .yamllint.yml flux ansible .github .sops.yaml .yamllint.yml
+      - name: ansible-lint
+        run: |
+          ansible-lint \
+            ansible/playbook.yml \
+            ansible/maintenance.yml \
+            ansible/upgrade-k3s.yml \
+            ansible/preflight.yml
+      - name: Vérifier la syntaxe des playbooks
+        run: |
+          ansible-playbook -i 'localhost,' --syntax-check \
+            ansible/playbook.yml \
+            ansible/maintenance.yml \
+            ansible/upgrade-k3s.yml \
+            ansible/preflight.yml
+
+  secrets:
+    name: Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Installer sops
+        run: |
+          curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" \
+            -o /usr/local/bin/sops
+          chmod +x /usr/local/bin/sops
+          sops --version
+      - name: Installer gitleaks
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Vérifier le déchiffrement SOPS
+        # Les PR de forks n'ont pas accès aux secrets GitHub.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SOPS_AGE_KEY:-}" ]; then
+            echo "::error::Le secret GitHub SOPS_AGE_KEY n'est pas configuré."
+            exit 1
+          fi
+
+          key_file="$RUNNER_TEMP/age.key"
+          umask 077
+          printf '%s\n' "$SOPS_AGE_KEY" > "$key_file"
+          export SOPS_AGE_KEY_FILE="$key_file"
+
+          while IFS= read -r f; do
+            sops -d "$f" >/dev/null
+            echo "OK $f"
+          done < <(git ls-files '*.enc.*')
+      - name: Détecter les secrets
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner
